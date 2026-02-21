@@ -1,5 +1,6 @@
 using SoftBook.Domain.Entities;
 using SoftBook.Domain.ViewModels;
+using SoftBook.Domain.DTOs;
 
 namespace SoftBook.Application.Services.Interfaces
 {
@@ -8,11 +9,11 @@ namespace SoftBook.Application.Services.Interfaces
         Task<List<Party>> GetAllAsync();
         Task<Party?> GetByIdAsync(int id);
         Task<List<Party>> GetByPartyTypeAsync(string partyType);
-        Task InsertAsync(Party entity);
-        Task UpdateAsync(Party entity);
-        Task DeleteAsync(int id);
-        Task InsertCompositeAsync(PartyViewModel viewModel);
-        Task UpdateCompositeAsync(PartyViewModel viewModel);
+        Task<DbResult> InsertAsync(Party entity);
+        Task<DbResult> UpdateAsync(Party entity);
+        Task<DbResult> DeleteAsync(int id);
+        Task<DbResult> InsertCompositeAsync(PartyViewModel viewModel);
+        Task<DbResult> UpdateCompositeAsync(PartyViewModel viewModel);
         Task<PartyViewModel?> GetCompositeAsync(int id);
     }
 }

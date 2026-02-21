@@ -3,6 +3,8 @@ using SoftBook.Domain.Data;
 using SoftBook.Domain.Entities;
 using SoftBook.Infrastructure.Interfaces;
 using SoftBook.Domain.RepositoryInterfaces;
+using Npgsql;
+using System.Data;
 
 namespace SoftBook.Infrastructure.Repositories.Classes
 {
@@ -28,14 +30,23 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         public async Task<Company?> GetCompanyByIdAsync(int companyId)
         {
-            return await ExecuteSingleReaderAsync("sp_GetCompanyById",
-                cmd => { cmd.Parameters.AddWithValue("@CompanyId", companyId); },
-                reader => new Company
+            // Postgres function: sp_getcompanybyid must be called with SELECT * FROM
+            string query = "SELECT * FROM sp_getcompanybyid(p_company_id := @p_company_id)";
+
+            return await ExecuteSingleReaderAsync(query,
+                cmd => 
+                { 
+                    cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId }); 
+                },
+                reader => 
                 {
-                    Id = Convert.ToInt32(reader["CompanyId"]),
-                    Name = reader["CompanyName"]?.ToString() ?? string.Empty,
-                    ConnectionString = reader["ConnectionString"]?.ToString() ?? string.Empty
-                });
+                    return new Company
+                    {
+                        Id = SafeGetInt(reader, "company_id"),
+                        Name = SafeGetString(reader, "company_name"),
+                        ConnectionString = SafeGetString(reader, "connection_string")
+                    };
+                }, CommandType.Text);
         }
     }
 }

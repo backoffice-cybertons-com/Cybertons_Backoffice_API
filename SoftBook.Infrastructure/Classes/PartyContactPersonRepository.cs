@@ -12,109 +12,93 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         public async Task<List<PartyContactPerson>> GetAllAsync()
         {
-            return await ExecuteReaderAsync("sp_PartyContactPerson_Master",
-                cmd => cmd.Parameters.AddWithValue("@Action", "SELECT"),
-                reader => new PartyContactPerson
-                {
-                    ContactPersonId = SafeGetInt(reader, "ContactPersonId"),
-                    PartyId = SafeGetInt(reader, "PartyId"),
-                    Salutation = SafeGetString(reader, "Salutation"),
-                    FirstName = SafeGetString(reader, "FirstName"),
-                    LastName = SafeGetString(reader, "LastName"),
-                    EmailAddress = SafeGetString(reader, "EmailAddress", SafeGetString(reader, "Email")),
-                    WorkPhone = SafeGetString(reader, "WorkPhone"),
-                    Mobile = SafeGetString(reader, "Mobile"),
-                    IsPrimary = SafeGetBool(reader, "IsPrimary"),
-                    CreatedOn = SafeGetDateTime(reader, "CreatedOn")
-                });
+            return await ExecuteReaderAsync("SELECT * FROM tab_party_contact_persons WHERE company_id = @company_id",
+                cmd => cmd.Parameters.AddWithValue("company_id", _tenantProvider?.CompanyId ?? 0),
+                reader => MapToPartyContactPerson(reader));
         }
 
         public async Task<PartyContactPerson?> GetByIdAsync(int id)
         {
-            return await ExecuteSingleReaderAsync("sp_PartyContactPerson_Master",
+            return await ExecuteSingleReaderAsync("SELECT * FROM tab_party_contact_persons WHERE contact_person_id = @id AND company_id = @company_id",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Action", "SELECT_BY_ID");
-                    cmd.Parameters.AddWithValue("@ContactPersonId", id);
+                    cmd.CommandType = System.Data.CommandType.Text;
+                    cmd.Parameters.AddWithValue("id", id);
+                    cmd.Parameters.AddWithValue("company_id", _tenantProvider?.CompanyId ?? 0);
                 },
-                reader => new PartyContactPerson
-                {
-                    ContactPersonId = SafeGetInt(reader, "ContactPersonId"),
-                    PartyId = SafeGetInt(reader, "PartyId"),
-                    Salutation = SafeGetString(reader, "Salutation"),
-                    FirstName = SafeGetString(reader, "FirstName"),
-                    LastName = SafeGetString(reader, "LastName"),
-                    EmailAddress = SafeGetString(reader, "EmailAddress", SafeGetString(reader, "Email")),
-                    WorkPhone = SafeGetString(reader, "WorkPhone"),
-                    Mobile = SafeGetString(reader, "Mobile"),
-                    IsPrimary = SafeGetBool(reader, "IsPrimary"),
-                    CreatedOn = SafeGetDateTime(reader, "CreatedOn")
-                });
+                reader => MapToPartyContactPerson(reader));
         }
 
         public async Task<List<PartyContactPerson>> GetByPartyIdAsync(int partyId)
         {
-            return await ExecuteReaderAsync("sp_PartyContactPerson_Master",
+            return await ExecuteReaderAsync("sp_party_contact_person_get_by_party_id",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Action", "SELECT_BY_PARTY_ID");
-                    cmd.Parameters.AddWithValue("@PartyId", partyId);
+                    cmd.Parameters.AddWithValue("p_party_id", partyId);
+                    cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
                 },
-                reader => new PartyContactPerson
-                {
-                    ContactPersonId = SafeGetInt(reader, "ContactPersonId"),
-                    PartyId = SafeGetInt(reader, "PartyId"),
-                    Salutation = SafeGetString(reader, "Salutation"),
-                    FirstName = SafeGetString(reader, "FirstName"),
-                    LastName = SafeGetString(reader, "LastName"),
-                    EmailAddress = SafeGetString(reader, "EmailAddress", SafeGetString(reader, "Email")),
-                    WorkPhone = SafeGetString(reader, "WorkPhone"),
-                    Mobile = SafeGetString(reader, "Mobile"),
-                    IsPrimary = SafeGetBool(reader, "IsPrimary"),
-                    CreatedOn = SafeGetDateTime(reader, "CreatedOn")
-                });
+                reader => MapToPartyContactPerson(reader));
         }
 
         public async Task InsertAsync(PartyContactPerson contactPerson)
         {
-            await ExecuteNonQueryAsync("sp_PartyContactPerson_Master", cmd =>
+            var contactId = await ExecuteScalarAsync<int>("sp_party_contact_person_create", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "INSERT");
-                cmd.Parameters.AddWithValue("@PartyId", contactPerson.PartyId);
-                cmd.Parameters.AddWithValue("@Salutation", contactPerson.Salutation ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@FirstName", contactPerson.FirstName);
-                cmd.Parameters.AddWithValue("@LastName", contactPerson.LastName ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@EmailAddress", contactPerson.EmailAddress ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@WorkPhone", contactPerson.WorkPhone ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@Mobile", contactPerson.Mobile ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@IsPrimary", contactPerson.IsPrimary ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
+                cmd.Parameters.AddWithValue("p_party_id", contactPerson.PartyId);
+                cmd.Parameters.AddWithValue("p_salutation", contactPerson.Salutation ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_first_name", contactPerson.FirstName);
+                cmd.Parameters.AddWithValue("p_last_name", contactPerson.LastName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_email", contactPerson.EmailAddress ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_work_phone", contactPerson.WorkPhone ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_mobile", contactPerson.Mobile ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_is_primary", contactPerson.IsPrimary ?? (object)DBNull.Value);
             });
+
+            if (contactId != null) contactPerson.ContactPersonId = Convert.ToInt32(contactId);
         }
 
         public async Task UpdateAsync(PartyContactPerson contactPerson)
         {
-            await ExecuteNonQueryAsync("sp_PartyContactPerson_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_party_contact_person_update", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "UPDATE");
-                cmd.Parameters.AddWithValue("@ContactPersonId", contactPerson.ContactPersonId);
-                cmd.Parameters.AddWithValue("@PartyId", contactPerson.PartyId);
-                cmd.Parameters.AddWithValue("@Salutation", contactPerson.Salutation ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@FirstName", contactPerson.FirstName);
-                cmd.Parameters.AddWithValue("@LastName", contactPerson.LastName ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@EmailAddress", contactPerson.EmailAddress ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@WorkPhone", contactPerson.WorkPhone ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@Mobile", contactPerson.Mobile ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@IsPrimary", contactPerson.IsPrimary ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_contact_person_id", contactPerson.ContactPersonId);
+                cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
+                cmd.Parameters.AddWithValue("p_party_id", contactPerson.PartyId);
+                cmd.Parameters.AddWithValue("p_salutation", contactPerson.Salutation ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_first_name", contactPerson.FirstName);
+                cmd.Parameters.AddWithValue("p_last_name", contactPerson.LastName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_email", contactPerson.EmailAddress ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_work_phone", contactPerson.WorkPhone ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_mobile", contactPerson.Mobile ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_is_primary", contactPerson.IsPrimary ?? (object)DBNull.Value);
             });
         }
 
         public async Task DeleteAsync(int id)
         {
-            await ExecuteNonQueryAsync("sp_PartyContactPerson_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_party_contact_person_delete", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "DELETE");
-                cmd.Parameters.AddWithValue("@ContactPersonId", id);
+                cmd.Parameters.AddWithValue("p_contact_person_id", id);
+                cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
             });
+        }
+
+        private PartyContactPerson MapToPartyContactPerson(Npgsql.NpgsqlDataReader reader)
+        {
+            return new PartyContactPerson
+            {
+                ContactPersonId = SafeGetInt(reader, "contact_person_id"),
+                PartyId = SafeGetInt(reader, "party_id"),
+                Salutation = SafeGetString(reader, "salutation"),
+                FirstName = SafeGetString(reader, "first_name"),
+                LastName = SafeGetString(reader, "last_name"),
+                EmailAddress = SafeGetString(reader, "email"), // assuming 'email' in DB, mapped to EmailAddress in model
+                WorkPhone = SafeGetString(reader, "work_phone"),
+                Mobile = SafeGetString(reader, "mobile"),
+                IsPrimary = SafeGetBool(reader, "is_primary"),
+                CreatedOn = SafeGetDateTime(reader, "created_on")
+            };
         }
     }
 }

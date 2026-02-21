@@ -12,109 +12,95 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         public async Task<List<PartyBankDetails>> GetAllAsync()
         {
-            return await ExecuteReaderAsync("sp_PartyBankDetails_Master",
-                cmd => cmd.Parameters.AddWithValue("@Action", "SELECT"),
-                reader => new PartyBankDetails
-                {
-                    BankDetailId = SafeGetInt(reader, "BankDetailId", SafeGetInt(reader, "BankId")),
-                    PartyId = SafeGetInt(reader, "PartyId"),
-                    AccountHolderName = SafeGetString(reader, "AccountHolderName"),
-                    BankName = SafeGetString(reader, "BankName"),
-                    AccountNumber = SafeGetString(reader, "AccountNumber"),
-                    IFSC = SafeGetString(reader, "IFSC"),
-                    Branch = SafeGetString(reader, "Branch"),
-                    MICR = SafeGetString(reader, "MICR"),
-                    IsDefault = SafeGetBool(reader, "IsDefault"),
-                    CreatedOn = SafeGetDateTime(reader, "CreatedOn")
-                });
+             // Not commonly used for banks, but let's implement if needed or throw not implemented. 
+             // Original implementation had it. I'll use raw query for safety as I didn't add sp_party_bank_details_get_all
+             return await ExecuteReaderAsync("SELECT * FROM tab_party_bank_details WHERE company_id = @company_id", 
+                cmd => cmd.Parameters.AddWithValue("company_id", _tenantProvider?.CompanyId ?? 0),
+                reader => MapToPartyBankDetails(reader));
         }
 
         public async Task<PartyBankDetails?> GetByIdAsync(int id)
         {
-            return await ExecuteSingleReaderAsync("sp_PartyBankDetails_Master",
+            return await ExecuteSingleReaderAsync("SELECT * FROM tab_party_bank_details WHERE bank_id = @id AND company_id = @company_id",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Action", "SELECT_BY_ID");
-                    cmd.Parameters.AddWithValue("@BankDetailId", id);
+                    cmd.CommandType = System.Data.CommandType.Text;
+                    cmd.Parameters.AddWithValue("id", id);
+                    cmd.Parameters.AddWithValue("company_id", _tenantProvider?.CompanyId ?? 0);
                 },
-                reader => new PartyBankDetails
-                {
-                    BankDetailId = SafeGetInt(reader, "BankDetailId", SafeGetInt(reader, "BankId")),
-                    PartyId = SafeGetInt(reader, "PartyId"),
-                    AccountHolderName = SafeGetString(reader, "AccountHolderName"),
-                    BankName = SafeGetString(reader, "BankName"),
-                    AccountNumber = SafeGetString(reader, "AccountNumber"),
-                    IFSC = SafeGetString(reader, "IFSC"),
-                    Branch = SafeGetString(reader, "Branch"),
-                    MICR = SafeGetString(reader, "MICR"),
-                    IsDefault = SafeGetBool(reader, "IsDefault"),
-                    CreatedOn = SafeGetDateTime(reader, "CreatedOn")
-                });
+                reader => MapToPartyBankDetails(reader));
         }
 
         public async Task<List<PartyBankDetails>> GetByPartyIdAsync(int partyId)
         {
-            return await ExecuteReaderAsync("sp_PartyBankDetails_Master",
+            return await ExecuteReaderAsync("sp_party_bank_details_get_by_party_id",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Action", "SELECT_BY_PARTY_ID");
-                    cmd.Parameters.AddWithValue("@PartyId", partyId);
+                    cmd.Parameters.AddWithValue("p_party_id", partyId);
+                    cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
                 },
-                reader => new PartyBankDetails
-                {
-                    BankDetailId = SafeGetInt(reader, "BankDetailId", SafeGetInt(reader, "BankId")),
-                    PartyId = SafeGetInt(reader, "PartyId"),
-                    AccountHolderName = SafeGetString(reader, "AccountHolderName"),
-                    BankName = SafeGetString(reader, "BankName"),
-                    AccountNumber = SafeGetString(reader, "AccountNumber"),
-                    IFSC = SafeGetString(reader, "IFSC"),
-                    Branch = SafeGetString(reader, "Branch"),
-                    MICR = SafeGetString(reader, "MICR"),
-                    IsDefault = SafeGetBool(reader, "IsDefault"),
-                    CreatedOn = SafeGetDateTime(reader, "CreatedOn")
-                });
+                reader => MapToPartyBankDetails(reader));
         }
 
         public async Task InsertAsync(PartyBankDetails bankDetails)
         {
-            await ExecuteNonQueryAsync("sp_PartyBankDetails_Master", cmd =>
+            var bankId = await ExecuteScalarAsync<int>("sp_party_bank_details_create", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "INSERT");
-                cmd.Parameters.AddWithValue("@PartyId", bankDetails.PartyId);
-                cmd.Parameters.AddWithValue("@AccountHolderName", bankDetails.AccountHolderName);
-                cmd.Parameters.AddWithValue("@BankName", bankDetails.BankName);
-                cmd.Parameters.AddWithValue("@AccountNumber", bankDetails.AccountNumber);
-                cmd.Parameters.AddWithValue("@IFSC", bankDetails.IFSC);
-                cmd.Parameters.AddWithValue("@Branch", bankDetails.Branch ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@MICR", bankDetails.MICR ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@IsDefault", bankDetails.IsDefault ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
+                cmd.Parameters.AddWithValue("p_party_id", bankDetails.PartyId);
+                cmd.Parameters.AddWithValue("p_account_holder_name", bankDetails.AccountHolderName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_bank_name", bankDetails.BankName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_account_number", bankDetails.AccountNumber ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_ifsc", bankDetails.IFSC ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_branch", bankDetails.Branch ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_micr", bankDetails.MICR ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_is_default", (object)bankDetails.IsDefault ?? DBNull.Value);
             });
+
+            if (bankId != null) bankDetails.BankDetailId = Convert.ToInt32(bankId);
         }
 
         public async Task UpdateAsync(PartyBankDetails bankDetails)
         {
-            await ExecuteNonQueryAsync("sp_PartyBankDetails_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_party_bank_details_update", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "UPDATE");
-                cmd.Parameters.AddWithValue("@BankDetailId", bankDetails.BankDetailId);
-                cmd.Parameters.AddWithValue("@PartyId", bankDetails.PartyId);
-                cmd.Parameters.AddWithValue("@AccountHolderName", bankDetails.AccountHolderName);
-                cmd.Parameters.AddWithValue("@BankName", bankDetails.BankName);
-                cmd.Parameters.AddWithValue("@AccountNumber", bankDetails.AccountNumber);
-                cmd.Parameters.AddWithValue("@IFSC", bankDetails.IFSC);
-                cmd.Parameters.AddWithValue("@Branch", bankDetails.Branch ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@MICR", bankDetails.MICR ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@IsDefault", bankDetails.IsDefault ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_bank_id", bankDetails.BankDetailId);
+                cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
+                cmd.Parameters.AddWithValue("p_party_id", bankDetails.PartyId);
+                cmd.Parameters.AddWithValue("p_account_holder_name", bankDetails.AccountHolderName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_bank_name", bankDetails.BankName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_account_number", bankDetails.AccountNumber ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_ifsc", bankDetails.IFSC ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_branch", bankDetails.Branch ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_micr", bankDetails.MICR ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("p_is_default", (object)bankDetails.IsDefault ?? DBNull.Value);
             });
         }
 
         public async Task DeleteAsync(int id)
         {
-            await ExecuteNonQueryAsync("sp_PartyBankDetails_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_party_bank_details_delete", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "DELETE");
-                cmd.Parameters.AddWithValue("@BankDetailId", id);
+                cmd.Parameters.AddWithValue("p_bank_id", id);
+                cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
             });
+        }
+
+        private PartyBankDetails MapToPartyBankDetails(Npgsql.NpgsqlDataReader reader)
+        {
+            return new PartyBankDetails
+            {
+                BankDetailId = SafeGetInt(reader, "bank_id"),
+                PartyId = SafeGetInt(reader, "party_id"),
+                AccountHolderName = SafeGetString(reader, "account_holder_name"),
+                BankName = SafeGetString(reader, "bank_name"),
+                AccountNumber = SafeGetString(reader, "account_number"),
+                IFSC = SafeGetString(reader, "ifsc"),
+                Branch = SafeGetString(reader, "branch"),
+                MICR = SafeGetString(reader, "micr"),
+                IsDefault = SafeGetBool(reader, "is_default"),
+                CreatedOn = SafeGetDateTime(reader, "created_on")
+            };
         }
     }
 }

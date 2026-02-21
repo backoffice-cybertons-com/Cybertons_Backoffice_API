@@ -1,8 +1,8 @@
 using SoftBook.Domain.Entities;
 using SoftBook.Domain.RepositoryInterfaces;
 using SoftBook.Application.Services.Interfaces;
-
 using SoftBook.Domain.ViewModels;
+using SoftBook.Domain.DTOs;
 
 namespace SoftBook.Application.Services.Classes
 {
@@ -13,59 +13,64 @@ namespace SoftBook.Application.Services.Classes
         private readonly IPartyBankDetailsRepository _bankRepository;
         private readonly IPartyContactPersonRepository _contactRepository;
         private readonly IPartyReportingTagRepository _tagRepository;
-        private readonly IPartyTypeMasterRepository _typeRepository;
 
         public PartyService(
             IPartyRepository partyRepository,
             IPartyAddressRepository addressRepository,
             IPartyBankDetailsRepository bankRepository,
             IPartyContactPersonRepository contactRepository,
-            IPartyReportingTagRepository tagRepository,
-            IPartyTypeMasterRepository typeRepository)
+            IPartyReportingTagRepository tagRepository)
         {
             _partyRepository = partyRepository;
             _addressRepository = addressRepository;
             _bankRepository = bankRepository;
             _contactRepository = contactRepository;
             _tagRepository = tagRepository;
-            _typeRepository = typeRepository;
         }
 
         public async Task<List<Party>> GetAllAsync() => await _partyRepository.GetAllAsync();
         public async Task<Party?> GetByIdAsync(int id) => await _partyRepository.GetByIdAsync(id);
-        public async Task InsertAsync(Party entity) => await _partyRepository.InsertAsync(entity);
-        public async Task UpdateAsync(Party entity) => await _partyRepository.UpdateAsync(entity);
-        public async Task DeleteAsync(int id)
+        public async Task<DbResult> InsertAsync(Party entity) => await _partyRepository.InsertAsync(entity);
+        public async Task<DbResult> UpdateAsync(Party entity) => await _partyRepository.UpdateAsync(entity);
+        public async Task<DbResult> DeleteAsync(int id)
         {
-            // Cascade Delete - Manual
-            // 1. Delete Addresses
-            var addresses = await _addressRepository.GetByPartyIdAsync(id);
-            foreach (var item in addresses) await _addressRepository.DeleteAsync(item.AddressId);
+            try
+            {
+                // Cascade Delete - Manual
+                // 1. Delete Addresses
+                var addresses = await _addressRepository.GetByPartyIdAsync(id);
+                foreach (var item in addresses) await _addressRepository.DeleteAsync(item.AddressId);
 
-            // 2. Delete Bank Details
-            var banks = await _bankRepository.GetByPartyIdAsync(id);
-            foreach (var item in banks) await _bankRepository.DeleteAsync(item.BankDetailId);
+                // 2. Delete Bank Details
+                var banks = await _bankRepository.GetByPartyIdAsync(id);
+                foreach (var item in banks) await _bankRepository.DeleteAsync(item.BankDetailId);
 
-            // 3. Delete Contact Persons
-            var contacts = await _contactRepository.GetByPartyIdAsync(id);
-            foreach (var item in contacts) await _contactRepository.DeleteAsync(item.ContactPersonId);
+                // 3. Delete Contact Persons
+                var contacts = await _contactRepository.GetByPartyIdAsync(id);
+                foreach (var item in contacts) await _contactRepository.DeleteAsync(item.ContactPersonId);
 
-            // 4. Delete Reporting Tags
-            var tags = await _tagRepository.GetByPartyIdAsync(id);
-            foreach (var item in tags) await _tagRepository.DeleteAsync(item.PartyReportingTagId);
+                // 4. Delete Reporting Tags
+                var tags = await _tagRepository.GetByPartyIdAsync(id);
+                foreach (var item in tags) await _tagRepository.DeleteAsync(item.PartyReportingTagId);
 
-            // 5. Delete Party Types (Mapping - Removed)
-
-            // 6. Delete Party
-            await _partyRepository.DeleteAsync(id);
+                // 5. Delete Party
+                return await _partyRepository.DeleteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                // Fallback for non-postgres exceptions or issues during manual cascade
+                return DbResult.Failure("Error during delete: " + ex.Message);
+            }
         }
         public async Task<List<Party>> GetByPartyTypeAsync(string partyType) => await _partyRepository.GetByPartyTypeAsync(partyType);
 
-        public async Task InsertCompositeAsync(PartyViewModel viewModel)
+        public async Task<DbResult> InsertCompositeAsync(PartyViewModel viewModel)
         {
             // 1. Insert Party
-            await _partyRepository.InsertAsync(viewModel.Party);
-            int partyId = viewModel.Party.PartyId; // Assuming InsertAsync populates ID via output param or EF tracking
+            var result = await _partyRepository.InsertAsync(viewModel.Party);
+            if (!result.Success) return result;
+
+            int partyId = viewModel.Party.PartyId;
 
             // 2. Insert Children
             if (viewModel.Addresses != null)
@@ -116,18 +121,18 @@ namespace SoftBook.Application.Services.Classes
                 }
             }
             
-            // Party Type mapping (Removed incorrect logic)
+            return DbResult.Ok(viewModel.Party);
         }
 
-        public async Task UpdateCompositeAsync(PartyViewModel viewModel)
+        public async Task<DbResult> UpdateCompositeAsync(PartyViewModel viewModel)
         {
             int partyId = viewModel.Party.PartyId;
             
             // 1. Update Party
-            await _partyRepository.UpdateAsync(viewModel.Party);
+            var result = await _partyRepository.UpdateAsync(viewModel.Party);
+            if (!result.Success) return result;
 
             // 2. Update Addresses (Delete Existing & Re-insert)
-            // Note: This matches the previous logic from UI Controller
             var addresses = await _addressRepository.GetByPartyIdAsync(partyId);
             foreach (var addr in addresses) await _addressRepository.DeleteAsync(addr.AddressId);
             
@@ -191,7 +196,7 @@ namespace SoftBook.Application.Services.Classes
                 }
             }
 
-            // 6. Update Party Type (Removed logic)
+            return DbResult.Ok(viewModel.Party);
         }
 
         public async Task<PartyViewModel?> GetCompositeAsync(int id)

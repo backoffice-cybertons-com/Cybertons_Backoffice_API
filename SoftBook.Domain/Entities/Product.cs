@@ -44,5 +44,35 @@ namespace SoftBook.Domain.Entities
     public int? InterStateTaxGroupId { get; set; } // Inter State Tax Group
 
     public string? SupplyType { get; set; } // INTRA or INTER
+
+    public int? ProductGroupId { get; set; }
+
+    public int? ProductPackingUnit { get; set; }
+
+    public decimal? OpeningQuantity { get; set; }
+
+    public decimal? OpeningPrice { get; set; }
+
+    public decimal? OpeningAmount { get; set; }
+
+    public int? PurchaseEffectedAccount { get; set; }
+
+    public int? SaleEffectedAccount { get; set; }
+
+    public decimal? SellingPrice2 { get; set; }
+
+    public decimal? SellingPrice3 { get; set; }
+
+    public decimal? SellingPrice4 { get; set; }
+
+    public decimal? SellingPrice5 { get; set; }
+
+    public decimal? MinQuantity { get; set; }
+
+    public decimal? MaxQuantity { get; set; }
+
+    public decimal? ReOrderQuantity { get; set; }
+
+    public int? TaxExemptionId { get; set; }
   }
 }

@@ -13,84 +13,87 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         public async Task<User?> ValidateUserAsync(string username, string password, int companyId)
         {
-            return await ExecuteSingleReaderAsync("sp_ValidateUser",
+            // Note: In new model, companyId is handled by the connection string/tenant provider context,
+            // but we might still pass it for validation if needed.
+            // PostgreSQL function name is snake_case: sp_validate_user
+            return await ExecuteSingleReaderAsync("sp_validate_user",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Username", username);
-                    cmd.Parameters.AddWithValue("@PasswordHash", password);
+                    cmd.Parameters.AddWithValue("p_username", username);
+                    cmd.Parameters.AddWithValue("p_password_hash", password);
+                    cmd.Parameters.AddWithValue("p_company_id", companyId);
                 },
                 reader => new User
                 {
-                    Id = Convert.ToInt32(reader["UserId"]),
-                    Username = reader["Username"]?.ToString() ?? string.Empty,
-                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                    PasswordHash = reader["PasswordHash"]?.ToString() ?? string.Empty
+                    Id = SafeGetInt(reader, "user_id"),
+                    Username = SafeGetString(reader, "username"),
+                    Email = SafeGetString(reader, "email"),
+                    PasswordHash = SafeGetString(reader, "password_hash"),
+                    CompanyId = SafeGetInt(reader, "company_id")
                 });
         }
 
         public async Task<List<SidebarItem>> GetSidebarPermissionsAsync(int userId)
         {
-            return await ExecuteReaderAsync("USP_GetUserSidebarAndPermissions",
+            // Function: usp_get_user_sidebar_and_permissions
+            return await ExecuteReaderAsync("usp_get_user_sidebar_and_permissions",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@UserId", userId);
+                    cmd.Parameters.AddWithValue("p_user_id", userId);
                 },
                 reader => new SidebarItem
                 {
-                    RoleId = Convert.ToInt32(reader["RoleId"]),
-                    RoleName = reader["RoleName"]?.ToString() ?? string.Empty,
-                    TabId = Convert.ToInt32(reader["TabId"]),
-                    TabName = reader["TabName"]?.ToString() ?? string.Empty,
-                    TabUrl = reader["TabUrl"]?.ToString() ?? string.Empty,
-                    ParentId = reader["ParentId"] != DBNull.Value ? Convert.ToInt32(reader["ParentId"]) : (int?)null,
-                    IconPath = reader["IconPath"]?.ToString() ?? string.Empty,
-                    SortOrder = Convert.ToInt32(reader["SortOrder"]),
-                    CanView = Convert.ToBoolean(reader["CanView"]),
-                    CanAdd = Convert.ToBoolean(reader["CanAdd"]),
-                    CanEdit = Convert.ToBoolean(reader["CanEdit"]),
-                    CanDelete = Convert.ToBoolean(reader["CanDelete"])
+                    RoleId = SafeGetInt(reader, "role_id"),
+                    RoleName = SafeGetString(reader, "role_name"),
+                    TabId = SafeGetInt(reader, "tab_id"),
+                    TabName = SafeGetString(reader, "tab_name"),
+                    TabUrl = SafeGetString(reader, "tab_url"),
+                    ParentId = reader["parent_id"] != DBNull.Value ? Convert.ToInt32(reader["parent_id"]) : (int?)null,
+                    IconPath = SafeGetString(reader, "icon_path"),
+                    SortOrder = SafeGetInt(reader, "sort_order"),
+                    CanView = SafeGetBool(reader, "can_view") ?? false,
+                    CanAdd = SafeGetBool(reader, "can_add") ?? false,
+                    CanEdit = SafeGetBool(reader, "can_edit") ?? false,
+                    CanDelete = SafeGetBool(reader, "can_delete") ?? false
                 });
         }
 
         public async Task<User?> InsertUserAsync(string username, string passwordHash, string email, string fullName = null, string phone = null)
         {
-            return await ExecuteSingleReaderAsync("sp_User_Register",
+            // Function: sp_user_register
+            return await ExecuteSingleReaderAsync("sp_user_register",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Username", username);
-                    cmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
-                    cmd.Parameters.AddWithValue("@Email", email);
-                    cmd.Parameters.AddWithValue("@FullName", (object)fullName ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@Phone", (object)phone ?? DBNull.Value);
-                    
-                    var userIdParam = new SqlParameter("@UserId", System.Data.SqlDbType.Int)
-                    {
-                        Direction = System.Data.ParameterDirection.Output
-                    };
-                    cmd.Parameters.Add(userIdParam);
+                    cmd.Parameters.AddWithValue("p_username", username);
+                    cmd.Parameters.AddWithValue("p_password_hash", passwordHash);
+                    cmd.Parameters.AddWithValue("p_email", email);
+                    cmd.Parameters.AddWithValue("p_full_name", (object)fullName ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("p_phone", (object)phone ?? DBNull.Value);
+                    // Output parameter logic is different in PG, usually we return result set.
+                    // The refined API should return the new user as a row.
                 },
                 reader => new User
                 {
-                    Id = Convert.ToInt32(reader["UserId"]),
-                    Username = reader["Username"]?.ToString() ?? string.Empty,
-                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                    PasswordHash = string.Empty // Don't return password hash
+                    Id = SafeGetInt(reader, "user_id"),
+                    Username = SafeGetString(reader, "username"),
+                    Email = SafeGetString(reader, "email"),
+                    PasswordHash = "" // Don't return hash
                 });
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
         {
-            return await ExecuteSingleReaderAsync("sp_User_GetByEmail",
+            return await ExecuteSingleReaderAsync("sp_user_get_by_email",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Email", email);
+                    cmd.Parameters.AddWithValue("p_email", email);
                 },
                 reader => new User
                 {
-                    Id = Convert.ToInt32(reader["UserId"]),
-                    Username = reader["Username"]?.ToString() ?? string.Empty,
-                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                    PasswordHash = reader["PasswordHash"]?.ToString() ?? string.Empty
+                    Id = SafeGetInt(reader, "user_id"),
+                    Username = SafeGetString(reader, "username"),
+                    Email = SafeGetString(reader, "email"),
+                    PasswordHash = SafeGetString(reader, "password_hash")
                 });
         }
 
@@ -98,15 +101,12 @@ namespace SoftBook.Infrastructure.Repositories.Classes
         {
             try
             {
-                using var connection = new SqlConnection(GetConnectionString());
-                await connection.OpenAsync();
-                
-                using var cmd = new SqlCommand("sp_User_UpdatePassword", connection);
-                cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@Email", email);
-                cmd.Parameters.AddWithValue("@NewPasswordHash", newPasswordHash);
-                
-                await cmd.ExecuteNonQueryAsync();
+                // Use BaseDAL helper instead of raw connection
+                await ExecuteNonQueryAsync("sp_user_update_password", cmd =>
+                {
+                    cmd.Parameters.AddWithValue("p_email", email);
+                    cmd.Parameters.AddWithValue("p_new_password_hash", newPasswordHash);
+                });
                 return true;
             }
             catch
@@ -117,70 +117,71 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         public async Task<List<User>> GetAllAsync()
         {
-            return await ExecuteReaderAsync("sp_User_Master",
-                cmd => cmd.Parameters.AddWithValue("@Action", "SELECT"),
+            // Universal Master access for User
+            return await ExecuteReaderAsync("sp_user_master",
+                cmd => cmd.Parameters.AddWithValue("p_action", "SELECT"),
                 reader => new User
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    Username = reader["Username"]?.ToString() ?? string.Empty,
-                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                    FullName = reader["FullName"]?.ToString(),
-                    Phone = reader["Phone"]?.ToString(),
-                    IsActive = reader["IsActive"] != DBNull.Value && Convert.ToBoolean(reader["IsActive"])
+                    Id = SafeGetInt(reader, "user_id"),
+                    Username = SafeGetString(reader, "username"),
+                    Email = SafeGetString(reader, "email"),
+                    FullName = SafeGetString(reader, "full_name"),
+                    Phone = SafeGetString(reader, "phone"),
+                    IsActive = SafeGetBool(reader, "is_active") ?? true
                 });
         }
 
         public async Task<User?> GetByIdAsync(int id)
         {
-            return await ExecuteSingleReaderAsync("sp_User_Master",
+            return await ExecuteSingleReaderAsync("sp_user_master",
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue("@Action", "SELECT_BY_ID");
-                    cmd.Parameters.AddWithValue("@UserId", id);
+                    cmd.Parameters.AddWithValue("p_action", "SELECT_BY_ID");
+                    cmd.Parameters.AddWithValue("p_user_id", id);
                 },
                 reader => new User
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    Username = reader["Username"]?.ToString() ?? string.Empty,
-                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                    FullName = reader["FullName"]?.ToString(),
-                    Phone = reader["Phone"]?.ToString(),
-                    IsActive = reader["IsActive"] != DBNull.Value && Convert.ToBoolean(reader["IsActive"])
+                    Id = SafeGetInt(reader, "user_id"),
+                    Username = SafeGetString(reader, "username"),
+                    Email = SafeGetString(reader, "email"),
+                    FullName = SafeGetString(reader, "full_name"),
+                    Phone = SafeGetString(reader, "phone"),
+                    IsActive = SafeGetBool(reader, "is_active") ?? true
                 });
         }
 
         public async Task InsertAsync(User user)
         {
-            await ExecuteNonQueryAsync("sp_User_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_user_master", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "INSERT");
-                cmd.Parameters.AddWithValue("@UserId", user.Id);
-                cmd.Parameters.AddWithValue("@Email", user.Email);
-                cmd.Parameters.AddWithValue("@FullName", (object)user.FullName ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@Phone", (object)user.Phone ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@IsActive", user.IsActive);
+                cmd.Parameters.AddWithValue("p_action", "INSERT");
+                cmd.Parameters.AddWithValue("p_user_id", user.Id);
+                cmd.Parameters.AddWithValue("p_email", user.Email);
+                cmd.Parameters.AddWithValue("p_full_name", (object)user.FullName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p_phone", (object)user.Phone ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p_is_active", user.IsActive);
             });
         }
 
         public async Task UpdateAsync(User user)
         {
-            await ExecuteNonQueryAsync("sp_User_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_user_master", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "UPDATE");
-                cmd.Parameters.AddWithValue("@UserId", user.Id);
-                cmd.Parameters.AddWithValue("@Email", user.Email);
-                cmd.Parameters.AddWithValue("@FullName", (object)user.FullName ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@Phone", (object)user.Phone ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@IsActive", user.IsActive);
+                cmd.Parameters.AddWithValue("p_action", "UPDATE");
+                cmd.Parameters.AddWithValue("p_user_id", user.Id);
+                cmd.Parameters.AddWithValue("p_email", user.Email);
+                cmd.Parameters.AddWithValue("p_full_name", (object)user.FullName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p_phone", (object)user.Phone ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p_is_active", user.IsActive);
             });
         }
 
         public async Task DeleteAsync(int id)
         {
-            await ExecuteNonQueryAsync("sp_User_Master", cmd =>
+            await ExecuteNonQueryAsync("sp_user_master", cmd =>
             {
-                cmd.Parameters.AddWithValue("@Action", "DELETE");
-                cmd.Parameters.AddWithValue("@UserId", id);
+                cmd.Parameters.AddWithValue("p_action", "DELETE");
+                cmd.Parameters.AddWithValue("p_user_id", id);
             });
         }
     }

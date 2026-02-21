@@ -12,7 +12,7 @@ namespace SoftBook.API.Filters
 
             operation.Parameters.Add(new OpenApiParameter
             {
-                Name = "X-Tenant-Id",
+                Name = "X-Company-Id",
                 In = ParameterLocation.Header,
                 Required = false, // Set to false so it doesn't block exploration, but it's needed for data
                 Schema = new OpenApiSchema

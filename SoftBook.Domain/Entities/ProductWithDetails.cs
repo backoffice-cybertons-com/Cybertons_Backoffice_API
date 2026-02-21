@@ -6,16 +6,23 @@ namespace SoftBook.Domain.Entities
     public string? Type { get; set; }
     public string? Name { get; set; }
 
-    // Prices (mapped from SP column names)
-    public decimal? SellingPrice { get; set; } // Maps to SalesRate from SP
-    public decimal? CostPrice { get; set; } // Maps to PurchaseRate from SP
+    // Prices
+    public decimal? SellingPrice { get; set; }
+    public decimal? SellingPrice2 { get; set; }
+    public decimal? SellingPrice3 { get; set; }
+    public decimal? SellingPrice4 { get; set; }
+    public decimal? SellingPrice5 { get; set; }
+    public decimal? CostPrice { get; set; }
 
     // Descriptions
     public string? SalesDescription { get; set; }
     public string? PurchaseDescription { get; set; }
 
-    // Unit
-    public string? UnitName { get; set; } // Maps to UsageUnit from SP
+    // Display Details
+    public string? BaseUnit { get; set; }
+    public string? PackingUnit { get; set; }
+    public string? ProductGroupName { get; set; }
+    public string? TaxGroupName { get; set; }
 
     // HSN/SAC
     public string? HSNCode { get; set; }
@@ -24,6 +31,16 @@ namespace SoftBook.Domain.Entities
     // Tax
     public int? TaxPreferenceId { get; set; }
     public int? TaxGroupId { get; set; }
+
+    // Inventory
+    public decimal? MinQuantity { get; set; }
+    public decimal? MaxQuantity { get; set; }
+    public decimal? ReOrderQuantity { get; set; }
+
+    public decimal? OpeningQuantity { get; set; }
+    public decimal? OpeningPrice { get; set; }
+    public decimal? OpeningAmount { get; set; }
+    public string? PreferredVendorName { get; set; }
 
     // Computed property for HSN/SAC display
     public string? HSNOrSACCode => Type == "Goods" ? HSNCode : SACCode;

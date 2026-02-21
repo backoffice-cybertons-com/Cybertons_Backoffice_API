@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using SoftBook.Infrastructure.Interfaces;
+using SoftBook.Domain.RepositoryInterfaces;
 
 namespace SoftBook.API.Middleware
 {
@@ -12,31 +13,50 @@ namespace SoftBook.API.Middleware
             _next = next;
         }
 
-        public async Task InvokeAsync(HttpContext context, ITenantResolutionService tenantResolutionService, ITenantProvider tenantProvider)
+        public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider, ITenantResolutionService tenantResolutionService)
         {
-            // 1. Try to get TenantId from JWT Claims
-            var tenantIdClaim = context.User.FindFirst("TenantId")?.Value;
+            // 1. Try to get CompanyId from JWT Claims
+            var companyIdClaim = context.User.FindFirst("CompanyId")?.Value;
             
-            // Fallback to Header for non-JWT transition (optional, but requested to NEVER trust mobile headers)
-            // For now, let's strictly use the claim if authenticated, or header if NOT authenticated (for dev/test)
-            if (string.IsNullOrEmpty(tenantIdClaim))
+            // Fallback for TenantId (legacy support)
+            if (string.IsNullOrEmpty(companyIdClaim))
             {
-                 if (context.Request.Headers.TryGetValue("X-Tenant-Id", out var id))
+                companyIdClaim = context.User.FindFirst("TenantId")?.Value;
+            }
+
+            // Fallback to Header (dev/test only)
+            if (string.IsNullOrEmpty(companyIdClaim))
+            {
+                 if (context.Request.Headers.TryGetValue("X-Company-Id", out var id))
                  {
-                     tenantIdClaim = id.ToString();
+                     companyIdClaim = id.ToString();
+                 }
+                 else if (context.Request.Headers.TryGetValue("X-Tenant-Id", out id))
+                 {
+                     companyIdClaim = id.ToString();
                  }
             }
 
-            if (!string.IsNullOrEmpty(tenantIdClaim) && int.TryParse(tenantIdClaim, out int tenantId))
+            if (!string.IsNullOrEmpty(companyIdClaim) && int.TryParse(companyIdClaim, out int companyId))
             {
-                tenantProvider.TenantId = tenantId;
-                
-                // 2. Resolve Connection String
-                var connectionString = await tenantResolutionService.GetConnectionStringAsync(tenantId);
+                tenantProvider.CompanyId = companyId;
+                Console.WriteLine($"[Tenant Diagnostic] Resolved CompanyId: {companyId}");
+
+                // Resolve and inject the connection string for this shard
+                var connectionString = await tenantResolutionService.GetConnectionStringAsync(companyId);
                 if (!string.IsNullOrEmpty(connectionString))
                 {
                     tenantProvider.ConnectionString = connectionString;
+                    Console.WriteLine($"[Tenant Diagnostic] Switched to DB: {connectionString}");
                 }
+                else
+                {
+                    Console.WriteLine($"[Tenant Diagnostic] WARNING: No connection string found for CompanyId: {companyId}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("[Tenant Diagnostic] No CompanyId claim found in request.");
             }
 
             await _next(context);

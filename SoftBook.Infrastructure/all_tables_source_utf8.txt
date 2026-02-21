@@ -1,0 +1,290 @@
+﻿CREATE TABLE [dbo].[TabAccountMaster](
+CREATE TABLE [dbo].[TabAddressTypeMaster](
+CREATE TABLE [dbo].[TabBankMaster](
+CREATE TABLE [dbo].[TabBill](
+CREATE TABLE [dbo].[TabBillItems](
+CREATE TABLE [dbo].[TabBillPayment](
+CREATE TABLE [dbo].[TabBranchMaster](
+CREATE TABLE [dbo].[TabBudget](
+CREATE TABLE [dbo].[TabCostCenterMaster](
+CREATE TABLE [dbo].[TabCreditNotes](
+CREATE TABLE [dbo].[TabCreditNotesItems](
+CREATE TABLE [dbo].[TabCurrencyAdjustment](
+CREATE TABLE [dbo].[TabCurrencyMaster](
+CREATE TABLE [dbo].[TabCustomerAdvance](
+CREATE TABLE [dbo].[TabDeliveryChallan](
+CREATE TABLE [dbo].[TabDeliveryChallanItems](
+CREATE TABLE [dbo].[TabEmployee](
+CREATE TABLE [dbo].[TabEWayBills](
+CREATE TABLE [dbo].[TabEWayBillsItems](
+CREATE TABLE [dbo].[TabFiscalYearMaster](
+CREATE TABLE [dbo].[TabGodownMaster](
+CREATE TABLE [dbo].[TabHSNMaster](
+CREATE TABLE [dbo].[TabInvoice](
+CREATE TABLE [dbo].[TabInvoiceItems](
+CREATE TABLE [dbo].[TabInvoicePayment](
+CREATE TABLE [dbo].[TabJournal](
+CREATE TABLE [dbo].[TabJournalLines](
+CREATE TABLE [dbo].[TabLedgerSettings](
+CREATE TABLE [dbo].[TabLocation](
+CREATE TABLE [dbo].[TabPartyAddress](
+CREATE TABLE [dbo].[TabPartyBankDetails](
+CREATE TABLE [dbo].[TabPartyContactPersons](
+CREATE TABLE [dbo].[TabPartyMaster](
+CREATE TABLE [dbo].[TabPartyReportingTags](
+CREATE TABLE [dbo].[TabPartyTypeMaster](
+CREATE TABLE [dbo].[TabPaymentModeMaster](
+CREATE TABLE [dbo].[TabPaymentTermMaster](
+CREATE TABLE [dbo].[TabProductGroupMaster](
+CREATE TABLE [dbo].[TabProductMaster](
+CREATE TABLE [dbo].[TabProjectMaster](
+CREATE TABLE [dbo].[TabPurchaseOrder](
+CREATE TABLE [dbo].[TabPurchaseOrderItems](
+CREATE TABLE [dbo].[TabQuote](
+CREATE TABLE [dbo].[TabQuoteItems](
+CREATE TABLE [dbo].[TabRecordExpense](
+CREATE TABLE [dbo].[TabRecordMileage](
+CREATE TABLE [dbo].[TabRecurringBill](
+CREATE TABLE [dbo].[TabRecurringBillItems](
+CREATE TABLE [dbo].[TabRecurringExpense](
+CREATE TABLE [dbo].[TabRecurringInvoice](
+CREATE TABLE [dbo].[TabRecurringInvoiceItems](
+CREATE TABLE [dbo].[TabRetainerInvoice](
+CREATE TABLE [dbo].[TabRetainerInvoiceItems](
+CREATE TABLE [dbo].[TabRoleMaster](
+CREATE TABLE [dbo].[TabRolePermission](
+CREATE TABLE [dbo].[Tabs](
+CREATE TABLE [dbo].[TabSACMaster](
+CREATE TABLE [dbo].[TabSalesOrder](
+CREATE TABLE [dbo].[TabSalesOrderItems](
+CREATE TABLE [dbo].[TabSalespersonMaster](
+CREATE TABLE [dbo].[TabTaxExemptionMaster](
+CREATE TABLE [dbo].[TabTaxGroupDetail](
+CREATE TABLE [dbo].[TabTaxGroupMaster](
+CREATE TABLE [dbo].[TabTaxMaster](
+CREATE TABLE [dbo].[TabTaxPreferenceMaster](
+CREATE TABLE [dbo].[TabTCSMaster](
+CREATE TABLE [dbo].[TabTDSMaster](
+CREATE TABLE [dbo].[TabTransporterMaster](
+CREATE TABLE [dbo].[TabUnitMaster](
+CREATE TABLE [dbo].[TabUserMaster](
+CREATE TABLE [dbo].[TabUserRole](
+CREATE TABLE [dbo].[TabVendorAdvanced](
+CREATE TABLE [dbo].[TabVendorCredit](
+CREATE TABLE [dbo].[TabWarehouseMaster](
+CREATE VIEW [dbo].[Account] AS
+CREATE VIEW [dbo].[AccountsPayable] AS
+CREATE VIEW [dbo].[AccountsReceivableRef] AS
+CREATE VIEW [dbo].[Customer] AS
+CREATE VIEW [dbo].[ExpenseAccount] AS
+CREATE VIEW [dbo].[HSNCodeRef] AS
+CREATE VIEW [dbo].[IGSTRef] AS
+CREATE VIEW [dbo].[PaidThroughAccount] AS
+CREATE VIEW [dbo].[SACRef] AS
+CREATE VIEW [dbo].[Vendor] AS
+CREATE UNIQUE NONCLUSTERED INDEX [UX_TaxGroup_Tax] ON [dbo].[TabTaxGroupDetail]
+ALTER TABLE [dbo].[TabAccountMaster] ADD  CONSTRAINT [DF_TabAccount_IsSubAccount]  DEFAULT ((0)) FOR [IsSubAccount]
+ALTER TABLE [dbo].[TabAddressTypeMaster] ADD  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabAddressTypeMaster] ADD  DEFAULT ((1)) FOR [SortOrder]
+ALTER TABLE [dbo].[TabAddressTypeMaster] ADD  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabBranchMaster] ADD  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabCurrencyAdjustment] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+ALTER TABLE [dbo].[TabEmployee] ADD  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabFiscalYearMaster] ADD  DEFAULT ((0)) FOR [IsCurrent]
+ALTER TABLE [dbo].[TabPartyAddress] ADD  DEFAULT ((0)) FOR [IsDefault]
+ALTER TABLE [dbo].[TabPartyAddress] ADD  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabPartyAddress] ADD  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabPartyBankDetails] ADD  DEFAULT ((0)) FOR [IsDefault]
+ALTER TABLE [dbo].[TabPartyBankDetails] ADD  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabPartyContactPersons] ADD  DEFAULT ((0)) FOR [IsPrimary]
+ALTER TABLE [dbo].[TabPartyContactPersons] ADD  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabPartyMaster] ADD  CONSTRAINT [DF__TabPartyM__Creat__20C1E124]  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabPartyReportingTags] ADD  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabPartyTypeMaster] ADD  CONSTRAINT [DF_TabPartyTypeMaster_IsCustomer]  DEFAULT ((0)) FOR [IsCustomer]
+ALTER TABLE [dbo].[TabPartyTypeMaster] ADD  CONSTRAINT [DF_TabPartyTypeMaster_IsVendor]  DEFAULT ((0)) FOR [IsVendor]
+ALTER TABLE [dbo].[TabPartyTypeMaster] ADD  CONSTRAINT [DF_TabPartyTypeMaster_IsActive]  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabPartyTypeMaster] ADD  CONSTRAINT [DF_TabPartyTypeMaster_SortOrder]  DEFAULT ((1)) FOR [SortOrder]
+ALTER TABLE [dbo].[TabPartyTypeMaster] ADD  CONSTRAINT [DF_TabPartyTypeMaster_CreatedOn]  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabRoleMaster] ADD  CONSTRAINT [DF_TabRoleMaster_IsActive]  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabRoleMaster] ADD  CONSTRAINT [DF_TabRoleMaster_IsDeleted]  DEFAULT ((0)) FOR [IsDeleted]
+ALTER TABLE [dbo].[TabRolePermission] ADD  CONSTRAINT [DF_TabRolePermission_IsActive]  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[Tabs] ADD  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabTaxExemptionMaster] ADD  CONSTRAINT [DF_TaxExemption_IsActive]  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabTaxExemptionMaster] ADD  CONSTRAINT [DF_TaxExemption_CreatedOn]  DEFAULT (getdate()) FOR [CreatedOn]
+ALTER TABLE [dbo].[TabTaxPreferenceMaster] ADD  DEFAULT ((1)) FOR [IsActive]
+ALTER TABLE [dbo].[TabTCSMaster] ADD  CONSTRAINT [DF__TabTCSMas__IsHig__32E0915F]  DEFAULT ((0)) FOR [IsHigherRate]
+ALTER TABLE [dbo].[TabTCSMaster] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+ALTER TABLE [dbo].[TabTDSMaster] ADD  CONSTRAINT [DF__TabTDSMas__IsHig__36B12243]  DEFAULT ((0)) FOR [IsHigherRate]
+ALTER TABLE [dbo].[TabTDSMaster] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+ALTER TABLE [dbo].[TabAccountMaster]  WITH CHECK ADD FOREIGN KEY([ParentAccountId])
+ALTER TABLE [dbo].[TabBill]  WITH CHECK ADD FOREIGN KEY([AccountsPayableId])
+ALTER TABLE [dbo].[TabBill]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabBill]  WITH CHECK ADD  CONSTRAINT [FK__TabBill__VendorI__2FCF1A8A] FOREIGN KEY([VendorId])
+ALTER TABLE [dbo].[TabBill] CHECK CONSTRAINT [FK__TabBill__VendorI__2FCF1A8A]
+ALTER TABLE [dbo].[TabBillItems]  WITH CHECK ADD FOREIGN KEY([AccountId])
+ALTER TABLE [dbo].[TabBillItems]  WITH CHECK ADD FOREIGN KEY([BillId])
+ALTER TABLE [dbo].[TabBillItems]  WITH CHECK ADD  CONSTRAINT [FK__TabBillIt__Custo__37703C52] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabBillItems] CHECK CONSTRAINT [FK__TabBillIt__Custo__37703C52]
+ALTER TABLE [dbo].[TabBillItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabCreditNotes]  WITH CHECK ADD  CONSTRAINT [FK__TabCredit__Custo__05D8E0BE] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabCreditNotes] CHECK CONSTRAINT [FK__TabCredit__Custo__05D8E0BE]
+ALTER TABLE [dbo].[TabCreditNotes]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabCreditNotesItems]  WITH CHECK ADD FOREIGN KEY([AccountId])
+ALTER TABLE [dbo].[TabCreditNotesItems]  WITH CHECK ADD FOREIGN KEY([CreditNoteId])
+ALTER TABLE [dbo].[TabCreditNotesItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabCurrencyAdjustment]  WITH CHECK ADD FOREIGN KEY([CurrencyId])
+ALTER TABLE [dbo].[TabDeliveryChallan]  WITH CHECK ADD  CONSTRAINT [FK__TabDelive__Custo__55F4C372] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabDeliveryChallan] CHECK CONSTRAINT [FK__TabDelive__Custo__55F4C372]
+ALTER TABLE [dbo].[TabDeliveryChallan]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabDeliveryChallanItems]  WITH CHECK ADD FOREIGN KEY([DeliveryChallanId])
+ALTER TABLE [dbo].[TabDeliveryChallanItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabEWayBills]  WITH CHECK ADD  CONSTRAINT [FK__TabEWayBi__Custo__0F624AF8] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabEWayBills] CHECK CONSTRAINT [FK__TabEWayBi__Custo__0F624AF8]
+ALTER TABLE [dbo].[TabEWayBills]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabEWayBills]  WITH CHECK ADD FOREIGN KEY([TransporterId])
+ALTER TABLE [dbo].[TabEWayBillsItems]  WITH CHECK ADD FOREIGN KEY([EWayBillId])
+ALTER TABLE [dbo].[TabEWayBillsItems]  WITH CHECK ADD FOREIGN KEY([HSN Code])
+ALTER TABLE [dbo].[TabEWayBillsItems]  WITH CHECK ADD FOREIGN KEY([IGST])
+ALTER TABLE [dbo].[TabGodownMaster]  WITH CHECK ADD FOREIGN KEY([WarehouseId])
+ALTER TABLE [dbo].[TabInvoice]  WITH CHECK ADD FOREIGN KEY([AccountsReceivable])
+ALTER TABLE [dbo].[TabInvoice]  WITH CHECK ADD  CONSTRAINT [FK__TabInvoic__Custo__5D95E53A] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabInvoice] CHECK CONSTRAINT [FK__TabInvoic__Custo__5D95E53A]
+ALTER TABLE [dbo].[TabInvoice]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabInvoiceItems]  WITH CHECK ADD FOREIGN KEY([InvoiceId])
+ALTER TABLE [dbo].[TabInvoiceItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabJournal]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabJournalLines]  WITH CHECK ADD FOREIGN KEY([AccountId])
+ALTER TABLE [dbo].[TabJournalLines]  WITH CHECK ADD FOREIGN KEY([JournalId])
+ALTER TABLE [dbo].[TabLocation]  WITH CHECK ADD FOREIGN KEY([BranchId])
+ALTER TABLE [dbo].[TabLocation]  WITH CHECK ADD FOREIGN KEY([WarehouseId])
+ALTER TABLE [dbo].[TabPartyAddress]  WITH CHECK ADD  CONSTRAINT [FK_TabPartyAddress_AddressType] FOREIGN KEY([AddressTypeId])
+ALTER TABLE [dbo].[TabPartyAddress] CHECK CONSTRAINT [FK_TabPartyAddress_AddressType]
+ALTER TABLE [dbo].[TabPartyAddress]  WITH CHECK ADD  CONSTRAINT [FK_TabPartyAddress_Party] FOREIGN KEY([PartyId])
+ALTER TABLE [dbo].[TabPartyAddress] CHECK CONSTRAINT [FK_TabPartyAddress_Party]
+ALTER TABLE [dbo].[TabPartyBankDetails]  WITH CHECK ADD  CONSTRAINT [FK__TabPartyB__Party__2C3393D0] FOREIGN KEY([PartyId])
+ALTER TABLE [dbo].[TabPartyBankDetails] CHECK CONSTRAINT [FK__TabPartyB__Party__2C3393D0]
+ALTER TABLE [dbo].[TabPartyContactPersons]  WITH CHECK ADD  CONSTRAINT [FK__TabPartyC__Party__267ABA7A] FOREIGN KEY([PartyId])
+ALTER TABLE [dbo].[TabPartyContactPersons] CHECK CONSTRAINT [FK__TabPartyC__Party__267ABA7A]
+ALTER TABLE [dbo].[TabPartyMaster]  WITH CHECK ADD  CONSTRAINT [FK_TabPartyMaster_PartyType] FOREIGN KEY([PartyTypeId])
+ALTER TABLE [dbo].[TabPartyMaster] CHECK CONSTRAINT [FK_TabPartyMaster_PartyType]
+ALTER TABLE [dbo].[TabPartyReportingTags]  WITH CHECK ADD  CONSTRAINT [FK__TabPartyR__Party__29572725] FOREIGN KEY([PartyId])
+ALTER TABLE [dbo].[TabPartyReportingTags] CHECK CONSTRAINT [FK__TabPartyR__Party__29572725]
+ALTER TABLE [dbo].[TabProductGroupMaster]  WITH CHECK ADD  CONSTRAINT [FK_ProductGroup_TradingAccount] FOREIGN KEY([TradingAccountId])
+ALTER TABLE [dbo].[TabProductGroupMaster] CHECK CONSTRAINT [FK_ProductGroup_TradingAccount]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD FOREIGN KEY([HSNId])
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD FOREIGN KEY([UnitId])
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_Product_PackingUnit] FOREIGN KEY([ProductPackingUnit])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_Product_PackingUnit]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_Product_ProductGroup] FOREIGN KEY([ProductGroupId])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_Product_ProductGroup]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_Product_PurchaseEffectedAccount] FOREIGN KEY([PurchaseEffectedAccount])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_Product_PurchaseEffectedAccount]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_Product_SaleEffectedAccount] FOREIGN KEY([SaleEffectedAccount])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_Product_SaleEffectedAccount]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_Product_TaxExemption] FOREIGN KEY([TaxExemptionId])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_Product_TaxExemption]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_TabProductMaster_TabSACMaster] FOREIGN KEY([SACId])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_TabProductMaster_TabSACMaster]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_TabProductMaster_TaxGroup] FOREIGN KEY([TaxGroupId])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_TabProductMaster_TaxGroup]
+ALTER TABLE [dbo].[TabProductMaster]  WITH CHECK ADD  CONSTRAINT [FK_TabProductMaster_TaxPreference] FOREIGN KEY([TaxPreferenceId])
+ALTER TABLE [dbo].[TabProductMaster] CHECK CONSTRAINT [FK_TabProductMaster_TaxPreference]
+ALTER TABLE [dbo].[TabPurchaseOrder]  WITH CHECK ADD  CONSTRAINT [FK__TabPurcha__Custo__3C34F16F] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabPurchaseOrder] CHECK CONSTRAINT [FK__TabPurcha__Custo__3C34F16F]
+ALTER TABLE [dbo].[TabPurchaseOrder]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabPurchaseOrder]  WITH CHECK ADD  CONSTRAINT [FK__TabPurcha__Vendo__3A4CA8FD] FOREIGN KEY([VendorId])
+ALTER TABLE [dbo].[TabPurchaseOrder] CHECK CONSTRAINT [FK__TabPurcha__Vendo__3A4CA8FD]
+ALTER TABLE [dbo].[TabPurchaseOrderItems]  WITH CHECK ADD FOREIGN KEY([AccountId])
+ALTER TABLE [dbo].[TabPurchaseOrderItems]  WITH CHECK ADD FOREIGN KEY([PurchaseOrderId])
+ALTER TABLE [dbo].[TabPurchaseOrderItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabQuote]  WITH CHECK ADD  CONSTRAINT [FK__TabQuote__Custom__09746778] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabQuote] CHECK CONSTRAINT [FK__TabQuote__Custom__09746778]
+ALTER TABLE [dbo].[TabQuote]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabQuoteItems]  WITH CHECK ADD FOREIGN KEY([QuoteId])
+ALTER TABLE [dbo].[TabQuoteItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabRecordExpense]  WITH CHECK ADD  CONSTRAINT [FK__TabRecord__Custo__1EA48E88] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabRecordExpense] CHECK CONSTRAINT [FK__TabRecord__Custo__1EA48E88]
+ALTER TABLE [dbo].[TabRecordExpense]  WITH CHECK ADD FOREIGN KEY([ExpenseAccountId])
+ALTER TABLE [dbo].[TabRecordExpense]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabRecordExpense]  WITH CHECK ADD FOREIGN KEY([PaidThroughAccountId])
+ALTER TABLE [dbo].[TabRecordExpense]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabRecordExpense]  WITH CHECK ADD  CONSTRAINT [FK__TabRecord__Vendo__1CBC4616] FOREIGN KEY([VendorId])
+ALTER TABLE [dbo].[TabRecordExpense] CHECK CONSTRAINT [FK__TabRecord__Vendo__1CBC4616]
+ALTER TABLE [dbo].[TabRecordMileage]  WITH CHECK ADD  CONSTRAINT [FK__TabRecord__Custo__25518C17] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabRecordMileage] CHECK CONSTRAINT [FK__TabRecord__Custo__25518C17]
+ALTER TABLE [dbo].[TabRecordMileage]  WITH CHECK ADD FOREIGN KEY([EmployeeId])
+ALTER TABLE [dbo].[TabRecordMileage]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabRecordMileage]  WITH CHECK ADD FOREIGN KEY([PaidThroughAccountId])
+ALTER TABLE [dbo].[TabRecordMileage]  WITH CHECK ADD  CONSTRAINT [FK__TabRecord__Vendo__245D67DE] FOREIGN KEY([VendorId])
+ALTER TABLE [dbo].[TabRecordMileage] CHECK CONSTRAINT [FK__TabRecord__Vendo__245D67DE]
+ALTER TABLE [dbo].[TabRecurringExpense]  WITH CHECK ADD  CONSTRAINT [FK__TabRecurr__Custo__2CF2ADDF] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabRecurringExpense] CHECK CONSTRAINT [FK__TabRecurr__Custo__2CF2ADDF]
+ALTER TABLE [dbo].[TabRecurringExpense]  WITH CHECK ADD FOREIGN KEY([ExpenseAccountId])
+ALTER TABLE [dbo].[TabRecurringExpense]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabRecurringExpense]  WITH CHECK ADD FOREIGN KEY([PaidThroughAccountId])
+ALTER TABLE [dbo].[TabRecurringExpense]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabRecurringExpense]  WITH CHECK ADD  CONSTRAINT [FK__TabRecurr__Vendo__2B0A656D] FOREIGN KEY([VendorId])
+ALTER TABLE [dbo].[TabRecurringExpense] CHECK CONSTRAINT [FK__TabRecurr__Vendo__2B0A656D]
+ALTER TABLE [dbo].[TabRetainerInvoice]  WITH CHECK ADD  CONSTRAINT [FK__TabRetain__Custo__681373AD] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabRetainerInvoice] CHECK CONSTRAINT [FK__TabRetain__Custo__681373AD]
+ALTER TABLE [dbo].[TabRetainerInvoice]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabRetainerInvoice]  WITH CHECK ADD FOREIGN KEY([ProjectId])
+ALTER TABLE [dbo].[TabRetainerInvoiceItems]  WITH CHECK ADD FOREIGN KEY([RetainerInvoiceId])
+ALTER TABLE [dbo].[TabRolePermission]  WITH CHECK ADD  CONSTRAINT [FK__TabRolePermission_TabRoleMaster] FOREIGN KEY([RoleId])
+ALTER TABLE [dbo].[TabRolePermission] CHECK CONSTRAINT [FK__TabRolePermission_TabRoleMaster]
+ALTER TABLE [dbo].[TabRolePermission]  WITH CHECK ADD  CONSTRAINT [FK_TabRolePermission_Tabs] FOREIGN KEY([TabId])
+ALTER TABLE [dbo].[TabRolePermission] CHECK CONSTRAINT [FK_TabRolePermission_Tabs]
+ALTER TABLE [dbo].[Tabs]  WITH CHECK ADD  CONSTRAINT [FK_Tabs_Parent] FOREIGN KEY([ParentId])
+ALTER TABLE [dbo].[Tabs] CHECK CONSTRAINT [FK_Tabs_Parent]
+ALTER TABLE [dbo].[TabSalesOrder]  WITH CHECK ADD  CONSTRAINT [FK__TabSalesO__Custo__4E53A1AA] FOREIGN KEY([CustomerId])
+ALTER TABLE [dbo].[TabSalesOrder] CHECK CONSTRAINT [FK__TabSalesO__Custo__4E53A1AA]
+ALTER TABLE [dbo].[TabSalesOrder]  WITH CHECK ADD FOREIGN KEY([LocationId])
+ALTER TABLE [dbo].[TabSalesOrderItems]  WITH CHECK ADD FOREIGN KEY([SalesOrderId])
+ALTER TABLE [dbo].[TabSalesOrderItems]  WITH CHECK ADD FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabTaxGroupDetail]  WITH CHECK ADD  CONSTRAINT [FK_TaxGroupDetail_Tax] FOREIGN KEY([TaxId])
+ALTER TABLE [dbo].[TabTaxGroupDetail] CHECK CONSTRAINT [FK_TaxGroupDetail_Tax]
+ALTER TABLE [dbo].[TabTaxGroupDetail]  WITH CHECK ADD  CONSTRAINT [FK_TaxGroupDetail_TaxGroup] FOREIGN KEY([TaxGroupId])
+ALTER TABLE [dbo].[TabTaxGroupDetail] CHECK CONSTRAINT [FK_TaxGroupDetail_TaxGroup]
+ALTER TABLE [dbo].[TabUserRole]  WITH CHECK ADD FOREIGN KEY([RoleId])
+ALTER TABLE [dbo].[TabUserRole]  WITH CHECK ADD FOREIGN KEY([UserId])
+ALTER TABLE [dbo].[TabWarehouseMaster]  WITH CHECK ADD FOREIGN KEY([BranchId])
+CREATE PROCEDURE [dbo].[sp_Account_Master]
+CREATE PROCEDURE [dbo].[sp_Bank_Master]
+CREATE PROCEDURE [dbo].[sp_Branch_Master]
+CREATE PROCEDURE [dbo].[sp_CostCenter_Master]
+CREATE PROCEDURE [dbo].[sp_Currency_Master]
+CREATE PROCEDURE [dbo].[sp_FiscalYear_Master]
+CREATE PROCEDURE [dbo].[sp_GetCompanyById]
+CREATE PROCEDURE [dbo].[sp_Godown_Master]
+CREATE PROCEDURE [dbo].[sp_HSN_Master]
+CREATE PROCEDURE [dbo].[sp_Party_Master]
+CREATE PROCEDURE [dbo].[sp_PartyAddress_Master]
+CREATE PROCEDURE [dbo].[sp_PartyBankDetails_Master]
+CREATE PROCEDURE [dbo].[sp_PartyContactPerson_Master]
+CREATE PROCEDURE [dbo].[sp_PartyReportingTag_Master]
+CREATE PROCEDURE [dbo].[sp_PartyTypeMaster]
+CREATE PROCEDURE [dbo].[sp_PartyTypeMaster_Master]
+CREATE PROCEDURE [dbo].[sp_PaymentMode_Master]
+CREATE PROCEDURE [dbo].[sp_PaymentTerm_Master]
+CREATE PROCEDURE [dbo].[sp_Product_Master]
+CREATE PROCEDURE [dbo].[sp_ProductGroup_Master]
+CREATE PROCEDURE [dbo].[sp_Project_Master]
+CREATE PROCEDURE [dbo].[sp_Role_Master]
+CREATE PROCEDURE [dbo].[sp_SAC_Master]
+CREATE PROCEDURE [dbo].[sp_Salesperson_Master]
+CREATE PROCEDURE [dbo].[sp_Tax_Master]
+CREATE PROCEDURE [dbo].[sp_TaxExemption_Master]
+CREATE PROCEDURE [dbo].[sp_TaxGroup_Master]
+CREATE PROCEDURE [dbo].[sp_TaxGroupDetail_Master]
+CREATE PROCEDURE [dbo].[sp_TaxPreference_Master]
+CREATE PROCEDURE [dbo].[sp_TCS_Master]
+CREATE PROCEDURE [dbo].[sp_TDS_Master]
+CREATE PROCEDURE [dbo].[sp_Transporter_Master]
+CREATE PROCEDURE [dbo].[sp_Unit_Master]
+CREATE PROCEDURE [dbo].[sp_User_GetByEmail]
+CREATE PROCEDURE [dbo].[sp_User_Master]
+CREATE PROCEDURE [dbo].[sp_User_Register]
+CREATE PROCEDURE [dbo].[sp_User_UpdatePassword]
+CREATE PROCEDURE [dbo].[sp_ValidateUser]
+CREATE PROCEDURE [dbo].[sp_Warehouse_Master]
+CREATE PROCEDURE [dbo].[USP_GetUserSidebarAndPermissions]

@@ -49,3 +49,12 @@ yarn-error.log*
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# Logs
+SoftBook.API/audit_logs/
+SoftBook.API/build_log.txt
+
+# Build folders
+bin/
+obj/
+.vs/

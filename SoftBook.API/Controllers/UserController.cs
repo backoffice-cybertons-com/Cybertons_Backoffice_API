@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SoftBook.Domain.Services.Interfaces;
 using SoftBook.Application.Services.Interfaces;
 using SoftBook.Domain.Entities;
 using SoftBook.Application.Helpers; 
@@ -18,17 +19,20 @@ namespace SoftBook.API.Controllers
         private readonly ICompanyService _companyService;
         private readonly IConfiguration _configuration;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IAuditLogService _auditLogService;
 
         public UserController(
             IUserService userService, 
             ICompanyService companyService, 
             IConfiguration configuration,
-            ITenantProvider tenantProvider)
+            ITenantProvider tenantProvider,
+            IAuditLogService auditLogService)
         {
             _userService = userService;
             _companyService = companyService;
             _configuration = configuration;
             _tenantProvider = tenantProvider;
+            _auditLogService = auditLogService;
         }
 
         [HttpPost("validate")]
@@ -36,19 +40,19 @@ namespace SoftBook.API.Controllers
         {
             try
             {
-                // 1. Get Company Connection String
+                // 1. Validate Company existence
                 Console.WriteLine($"[Login Diagnostic] Attempting login for CompanyId: {request.CompanyId}, User: {request.EmailUsername}");
                 var company = await _companyService.GetCompanyByIdAsync(request.CompanyId);
-                if (company == null || string.IsNullOrEmpty(company.ConnectionString))
+                if (company == null)
                 {
                     Console.WriteLine($"[Login Diagnostic] Failed: Invalid CompanyId {request.CompanyId}");
                     return BadRequest("Invalid Company ID");
                 }
 
-                Console.WriteLine($"[Login Diagnostic] Resolved ConnectionString: {company.ConnectionString}");
-
-                // 2. Set Connection String for Multi-tenancy
+                // 2. Set CompanyId and ConnectionString for Multi-tenancy
+                _tenantProvider.CompanyId = request.CompanyId;
                 _tenantProvider.ConnectionString = company.ConnectionString;
+                Console.WriteLine($"[Login Diagnostic] Tenant Context Set. DB Connection: {company.ConnectionString}");
 
                 // 3. Validate User
                 var passwordHash = PasswordHelper.HashPassword(request.Password);
@@ -78,6 +82,9 @@ namespace SoftBook.API.Controllers
                 loginResponse.Token = GenerateJwtToken(loginResponse.User, request.CompanyId);
                 Console.WriteLine("[Login Diagnostic] Login Successful.");
 
+                // 5. Audit Log (Login)
+                await _auditLogService.LogActionAsync("Login", loginResponse.User.Id, loginResponse.User.Username, request.CompanyId);
+
                 // Return token and user info
                 return Ok(loginResponse);
             }
@@ -87,6 +94,27 @@ namespace SoftBook.API.Controllers
                 Console.WriteLine($"Login Error: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] LoginRequest request)
+        {
+            // For logout, we just need basic info for the log
+            // We expect the client to send UserID/Username/CompanyId if possible, or we extract from token if authorized.
+            // Simplified: Client sends minimal info or we trust the token. 
+            // For now, let's assume client sends the same structure or we extract from context if auth header exists.
+            
+            // To be robust, we should get ID from claims if authorized.
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var usernameClaim = User.FindFirst(ClaimTypes.Name)?.Value;
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
+
+            int userId = userIdClaim != null ? int.Parse(userIdClaim) : 0;
+            string username = usernameClaim ?? request.EmailUsername ?? "Unknown";
+            int companyId = companyIdClaim != null ? int.Parse(companyIdClaim) : request.CompanyId;
+
+            await _auditLogService.LogActionAsync("Logout", userId, username, companyId);
+            return Ok(new { message = "Logged out successfully" });
         }
 
         [HttpGet("by-email")]
@@ -184,7 +212,7 @@ namespace SoftBook.API.Controllers
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Name, user.Username),
                     new Claim(ClaimTypes.Email, user.Email ?? ""),
-                    new Claim("TenantId", tenantId.ToString())
+                    new Claim("CompanyId", tenantId.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["DurationInMinutes"] ?? "60")),
                 Issuer = jwtSettings["Issuer"],
