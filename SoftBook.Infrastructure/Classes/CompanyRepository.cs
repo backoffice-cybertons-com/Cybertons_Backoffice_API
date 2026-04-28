@@ -1,8 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.Entities;
-using SoftBook.Infrastructure.Interfaces;
 using SoftBook.Domain.RepositoryInterfaces;
+
 using Npgsql;
 using System.Data;
 
@@ -34,10 +37,27 @@ namespace SoftBook.Infrastructure.Repositories.Classes
             string query = "SELECT * FROM sp_getcompanybyid(p_company_id := @p_company_id)";
 
             return await ExecuteSingleReaderAsync(query,
-                cmd => 
-                { 
-                    cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId }); 
+                cmd =>
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId });
                 },
+                reader =>
+                {
+                    return new Company
+                    {
+                        Id = SafeGetInt(reader, "company_id"),
+                        Name = SafeGetString(reader, "company_name"),
+                        ConnectionString = SafeGetString(reader, "connection_string")
+                    };
+                }, CommandType.Text);
+        }
+        public async Task<List<Company>> GetAllAsync()
+        {
+            // Fix: tab_company_master uses 'is_enabled' instead of 'delete_flag'
+            string query = "SELECT company_id, company_name, connection_string FROM tab_company_master WHERE is_enabled = true";
+
+            return await ExecuteReaderAsync(query,
+                cmd => { },
                 reader => 
                 {
                     return new Company

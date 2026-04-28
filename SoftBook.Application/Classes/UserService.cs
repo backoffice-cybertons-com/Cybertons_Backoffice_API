@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.Entities;
 using SoftBook.Domain.RepositoryInterfaces;
@@ -47,14 +51,14 @@ namespace SoftBook.Application.Services.Classes
             return new LoginResponseDTO { User = user };
         }
 
-        public async Task<List<SidebarItem>> GetSidebarPermissionsAsync(int userId)
+        public async Task<List<SidebarItem>> GetSidebarPermissionsAsync(int userId, int companyId)
         {
-            return await _repository.GetSidebarPermissionsAsync(userId);
+            return await _repository.GetSidebarPermissionsAsync(userId, companyId);
         }
 
-        public async Task<User?> InsertUserAsync(string username, string passwordHash, string email, string fullName = null, string phone = null)
+        public async Task<User?> InsertUserAsync(string username, string passwordHash, string email, string fullName = null, string phone = null, int? roleId = null, int? companyId = null)
         {
-            return await _repository.InsertUserAsync(username, passwordHash, email, fullName, phone);
+            return await _repository.InsertUserAsync(username, passwordHash, email, fullName, phone, roleId, companyId);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)

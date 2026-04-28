@@ -1,6 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using SoftBook.Domain.Entities;
+using SoftBook.Domain.DTOs;
 using SoftBook.Application.Services.Interfaces;
+using SoftBook.Domain.RepositoryInterfaces;
 
 namespace SoftBook.API.Controllers
 {
@@ -9,10 +15,12 @@ namespace SoftBook.API.Controllers
 	public class ProductController : ControllerBase
 	{
 		private readonly IProductService _service;
+		private readonly ITenantProvider _tenantProvider;
 
-		public ProductController(IProductService service)
+		public ProductController(IProductService service, ITenantProvider tenantProvider)
 		{
 			_service = service;
+			_tenantProvider = tenantProvider;
 		}
 
 		// Basic CRUD using strongly-typed Product and fn_product_master
@@ -34,8 +42,13 @@ namespace SoftBook.API.Controllers
 
 		[HttpPost]
 		public async Task<IActionResult> Create([FromBody] Product product)
-		 {
-			await _service.InsertAsync(product);
+		{
+			var userId = _tenantProvider.UserId;
+			var dbResult = await _service.InsertAsync(product, userId);
+			if (!dbResult.Success)
+			{
+				return BadRequest(dbResult);
+			}
 			return Ok();
 		}
 
@@ -43,15 +56,24 @@ namespace SoftBook.API.Controllers
 		public async Task<IActionResult> Update(int id, [FromBody] Product product)
 		{
 			product.ProductId = id;
-			if (id != product.ProductId) return BadRequest();
-			await _service.UpdateAsync(product);
+			var userId = _tenantProvider.UserId;
+			var dbResult = await _service.UpdateAsync(product, userId);
+			if (!dbResult.Success)
+			{
+				return BadRequest(dbResult);
+			}
 			return Ok();
 		}
 
 		[HttpDelete("{id}")]
 		public async Task<IActionResult> Delete(int id)
 		{
-			await _service.DeleteAsync(id);
+			var userId = _tenantProvider.UserId;
+			var dbResult = await _service.DeleteAsync(id, userId);
+			if (!dbResult.Success)
+			{
+				return BadRequest(dbResult);
+			}
 			return Ok();
 		}
 

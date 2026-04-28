@@ -1,4 +1,8 @@
-using SoftBook.Infrastructure.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
+using SoftBook.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Configuration;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.Entities;
@@ -31,7 +35,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           reader => MapToParty(reader));
     }
 
-    public async Task<DbResult> InsertAsync(Party party)
+    public async Task<DbResult> InsertAsync(Party party, int? userId = null)
     {
       try
       {
@@ -65,6 +69,9 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           cmd.Parameters.AddWithValue("p_website_url", party.WebsiteURL ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_department", party.Department ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_remarks", party.Remarks ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_party_profile", party.PartyProfile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_rate_diff", party.RateDiff ?? 0);
+          cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
         });
 
         if (partyId != 0) party.PartyId = Convert.ToInt32(partyId);
@@ -76,7 +83,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
       }
     }
 
-    public async Task<DbResult> UpdateAsync(Party party)
+    public async Task<DbResult> UpdateAsync(Party party, int? userId = null)
     {
       try
       {
@@ -111,6 +118,9 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           cmd.Parameters.AddWithValue("p_website_url", party.WebsiteURL ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_department", party.Department ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_remarks", party.Remarks ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_party_profile", party.PartyProfile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_rate_diff", party.RateDiff ?? 0);
+          cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
         }, reader => reader[0]);
         return DbResult.Ok(party);
       }
@@ -120,7 +130,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
       }
     }
 
-    public async Task<DbResult> DeleteAsync(int id)
+    public async Task<DbResult> DeleteAsync(int id, int? userId = null)
     {
       try
       {
@@ -128,6 +138,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
         {
           cmd.Parameters.AddWithValue("p_party_id", id);
           cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
+          cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
         }, reader => reader[0]);
         return DbResult.Ok();
       }
@@ -178,6 +189,8 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           WebsiteURL = SafeGetString(reader, "website_url"),
           Department = SafeGetString(reader, "department"),
           Remarks = SafeGetString(reader, "remarks"),
+          PartyProfile = SafeGetString(reader, "party_profile"),
+          RateDiff = reader["rate_diff"] != DBNull.Value ? Convert.ToDecimal(reader["rate_diff"]) : null,
           CreatedOn = SafeGetDateTime(reader, "created_on")
        };
     }

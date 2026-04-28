@@ -1,4 +1,8 @@
-using SoftBook.Infrastructure.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
+using SoftBook.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Data.SqlClient;
 using SoftBook.Domain.Data;
@@ -33,13 +37,14 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 });
         }
 
-        public async Task<List<SidebarItem>> GetSidebarPermissionsAsync(int userId)
+        public async Task<List<SidebarItem>> GetSidebarPermissionsAsync(int userId, int companyId)
         {
             // Function: usp_get_user_sidebar_and_permissions
             return await ExecuteReaderAsync("usp_get_user_sidebar_and_permissions",
                 cmd =>
                 {
                     cmd.Parameters.AddWithValue("p_user_id", userId);
+                    cmd.Parameters.AddWithValue("p_company_id", companyId);
                 },
                 reader => new SidebarItem
                 {
@@ -58,7 +63,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 });
         }
 
-        public async Task<User?> InsertUserAsync(string username, string passwordHash, string email, string fullName = null, string phone = null)
+        public async Task<User?> InsertUserAsync(string username, string passwordHash, string email, string fullName = null, string phone = null, int? roleId = null, int? companyId = null)
         {
             // Function: sp_user_register
             return await ExecuteSingleReaderAsync("sp_user_register",
@@ -69,6 +74,8 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                     cmd.Parameters.AddWithValue("p_email", email);
                     cmd.Parameters.AddWithValue("p_full_name", (object)fullName ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("p_phone", (object)phone ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("p_role_id", (object)roleId ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("p_company_id", (object)companyId ?? 0);
                     // Output parameter logic is different in PG, usually we return result set.
                     // The refined API should return the new user as a row.
                 },

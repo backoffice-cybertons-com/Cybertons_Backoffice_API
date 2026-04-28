@@ -1,4 +1,4 @@
-﻿-----------------------------------------------------------
+-----------------------------------------------------------
 -- SOFTBOOK POSTGRESQL COMPLETE DATABASE SCRIPT
 -- GENERATED ON: 2026-01-29
 -- CONVENTION: snake_case
@@ -139,7 +139,9 @@ CREATE TABLE IF NOT EXISTS tab_fiscal_year_master (
     company_id INT NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    is_current BOOLEAN DEFAULT FALSE
+    is_current BOOLEAN DEFAULT FALSE,
+    fiscal_year_label CHARACTER VARYING(20) COLLATE pg_catalog."default",
+    CONSTRAINT uq_fiscal_year UNIQUE (company_id, start_date, end_date)
 );
 
 CREATE TABLE IF NOT EXISTS tab_godown_master (
@@ -2039,6 +2041,131 @@ BEGIN
     SELECT * FROM tab_party_reporting_tags WHERE party_id = p_party_id AND company_id = p_company_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Fiscal Year Master - Overlap Validation + Current Year Flag
+CREATE OR REPLACE FUNCTION public.fn_fiscal_year(
+    p_action TEXT,
+    p_fiscal_year_id INTEGER DEFAULT NULL,
+    p_company_id INTEGER DEFAULT NULL,
+    p_start_date DATE DEFAULT NULL,
+    p_end_date DATE DEFAULT NULL,
+    p_is_current BOOLEAN DEFAULT FALSE
+)
+RETURNS SETOF tab_fiscal_year_master
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_label TEXT;
+BEGIN
+
+    -- Generate label (e.g., 2025-26)
+    v_label := TO_CHAR(p_start_date, 'YYYY') || '-' ||
+               RIGHT(TO_CHAR(p_end_date, 'YYYY'), 2);
+
+    IF p_action = 'INSERT' THEN
+
+        IF p_start_date >= p_end_date THEN
+            RAISE EXCEPTION 'Start date must be less than end date';
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM tab_fiscal_year_master
+            WHERE company_id = p_company_id
+            AND (
+                p_start_date BETWEEN start_date AND end_date OR
+                p_end_date BETWEEN start_date AND end_date OR
+                start_date BETWEEN p_start_date AND p_end_date
+            )
+        ) THEN
+            RAISE EXCEPTION 'Fiscal year overlaps with existing year';
+        END IF;
+
+        RETURN QUERY
+        INSERT INTO tab_fiscal_year_master (
+            company_id,
+            start_date,
+            end_date,
+            is_current,
+            fiscal_year_label
+        )
+        VALUES (
+            p_company_id,
+            p_start_date,
+            p_end_date,
+            p_is_current,
+            v_label
+        )
+        RETURNING *;
+
+        IF p_is_current THEN
+            UPDATE tab_fiscal_year_master
+            SET is_current = FALSE
+            WHERE company_id = p_company_id
+            AND fiscal_year_id NOT IN (
+                SELECT fiscal_year_id FROM tab_fiscal_year_master
+                WHERE company_id = p_company_id
+                ORDER BY fiscal_year_id DESC LIMIT 1
+            );
+        END IF;
+
+    ELSIF p_action = 'UPDATE' THEN
+
+        IF EXISTS (
+            SELECT 1 FROM tab_fiscal_year_master
+            WHERE company_id = p_company_id
+            AND fiscal_year_id <> p_fiscal_year_id
+            AND (
+                p_start_date BETWEEN start_date AND end_date OR
+                p_end_date BETWEEN start_date AND end_date OR
+                start_date BETWEEN p_start_date AND p_end_date
+            )
+        ) THEN
+            RAISE EXCEPTION 'Fiscal year overlaps with existing year';
+        END IF;
+
+        RETURN QUERY
+        UPDATE tab_fiscal_year_master
+        SET
+            start_date = COALESCE(p_start_date, start_date),
+            end_date = COALESCE(p_end_date, end_date),
+            is_current = COALESCE(p_is_current, is_current),
+            fiscal_year_label = v_label
+        WHERE fiscal_year_id = p_fiscal_year_id
+        AND company_id = p_company_id
+        RETURNING *;
+
+        IF p_is_current THEN
+            UPDATE tab_fiscal_year_master
+            SET is_current = FALSE
+            WHERE company_id = p_company_id
+            AND fiscal_year_id <> p_fiscal_year_id;
+        END IF;
+
+    ELSIF p_action = 'DELETE' THEN
+        DELETE FROM tab_fiscal_year_master
+        WHERE fiscal_year_id = p_fiscal_year_id
+        AND company_id = p_company_id;
+        RETURN;
+
+    ELSIF p_action = 'GETBYID' THEN
+        RETURN QUERY
+        SELECT *
+        FROM tab_fiscal_year_master
+        WHERE fiscal_year_id = p_fiscal_year_id
+        AND company_id = p_company_id;
+
+    ELSIF p_action = 'GETALL' THEN
+        RETURN QUERY
+        SELECT *
+        FROM tab_fiscal_year_master
+        WHERE company_id = p_company_id
+        ORDER BY start_date DESC;
+
+    END IF;
+
+END;
+$$;
+
 -- PostgreSQL Universal Master Procedure (PL/pgSQL Function) - Snake Case Version
 -- This function handles CRUD for all 27 Master Entities with mandatory company_id isolation.
 
@@ -2111,6 +2238,21 @@ BEGIN
         RETURN QUERY EXECUTE format('SELECT row_to_json(t) FROM %I t WHERE t.tax_group_id = %L AND t.company_id = %L', v_table_name, p_id, p_company_id);
 
     ELSIF p_action = 'INSERT' THEN
+        -- Special handling: fiscal year uses validation + overlap checks
+        IF LOWER(p_master_name) IN ('fiscalyear', 'tabfiscalyearmaster', 'fiscal_year', 'fiscal_year_master', 'fiscalyears') THEN
+            RETURN QUERY
+            SELECT row_to_json(t)
+            FROM public.fn_fiscal_year(
+                'INSERT',
+                NULL,
+                p_company_id,
+                (p_json_data->>'start_date')::date,
+                (p_json_data->>'end_date')::date,
+                COALESCE((p_json_data->>'is_current')::boolean, FALSE)
+            ) t;
+            RETURN;
+        END IF;
+
         -- Prevent insertion into views
         IF v_table_name LIKE 'v_%' THEN RAISE EXCEPTION 'Cannot insert into view %', v_table_name; END IF;
         -- Standard insertion with company_id enforcement
@@ -2119,6 +2261,21 @@ BEGIN
         RETURN QUERY EXECUTE v_query;
         
     ELSIF p_action = 'UPDATE' THEN
+        -- Special handling: fiscal year uses validation + overlap checks
+        IF LOWER(p_master_name) IN ('fiscalyear', 'tabfiscalyearmaster', 'fiscal_year', 'fiscal_year_master', 'fiscalyears') THEN
+            RETURN QUERY
+            SELECT row_to_json(t)
+            FROM public.fn_fiscal_year(
+                'UPDATE',
+                p_id,
+                p_company_id,
+                (p_json_data->>'start_date')::date,
+                (p_json_data->>'end_date')::date,
+                COALESCE((p_json_data->>'is_current')::boolean, FALSE)
+            ) t;
+            RETURN;
+        END IF;
+
         -- Prevent update on views
         IF v_table_name LIKE 'v_%' THEN RAISE EXCEPTION 'Cannot update view %', v_table_name; END IF;
         v_query := format('UPDATE %I t SET (%I) = (SELECT %I FROM jsonb_populate_record(NULL::%I, %L)) 

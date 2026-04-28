@@ -1,4 +1,8 @@
-using SoftBook.Infrastructure.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
+using SoftBook.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Configuration;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.Entities;

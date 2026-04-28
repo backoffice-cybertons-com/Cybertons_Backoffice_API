@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -44,6 +48,9 @@ namespace SoftBook.Domain.Entities
     public string? WebsiteURL { get; set; }
     public string? Department { get; set; }
     public string? Remarks { get; set; }
+    public string? PartyProfile { get; set; }
+    public decimal? RateDiff { get; set; }
     public DateTime? CreatedOn { get; set; }
+    public DateTime? ModifiedOn { get; set; }
   }
 }

@@ -1,26 +1,41 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.RepositoryInterfaces;
-using SoftBook.Infrastructure.Repositories.Classes;
-using SoftBook.Domain.Services.Interfaces;
+using SoftBook.Domain.Services.Interfaces; // For IAuditLogService
+using SoftBook.Infrastructure.Repositories.Classes; // For Repositories
 using SoftBook.Application.Services.Interfaces;
 using SoftBook.Application.Services.Classes;
-using SoftBook.Application.Services;
-using SoftBook.Domain.Entities;
+using SoftBook.Application.Services; // For EmailService
+using SoftBook.Infrastructure.Classes; // For CsvAuditLogService, TenantResolutionService
+using SoftBook.API.Services; // For new TenantProvider
+using SoftBook.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using SoftBook.Infrastructure.Interfaces;
-using SoftBook.Infrastructure.Classes; // For CsvAuditLogService
-using SoftBook.API.Services; // For new TenantProvider
-using SoftBook.API.Middleware;
+using System.Text.Json;
+
+using System.IdentityModel.Tokens.Jwt;
+using SoftBook.Application.Interfaces;
+using SoftBook.Application.Classes;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Clear default claim mapping so we can use "sub", "id", etc. directly from JWT
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<SoftBook.API.Filters.DatabaseExceptionFilter>();
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -29,18 +44,37 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Enable CORS for React Frontend
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowReactApp", policy =>
+//    {
+//        policy.SetIsOriginAllowed(origin => 
+//                new Uri(origin).Host == "localhost" || 
+//                new Uri(origin).Host == "127.0.0.1")
+//              .AllowAnyHeader()
+//              .AllowAnyMethod()
+//              .AllowCredentials(); // Important for cookies/auth
+//    });
+//});
+
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", policy =>
+    options.AddPolicy("AllowBookUI", policy =>
     {
-        policy.SetIsOriginAllowed(origin => 
-                new Uri(origin).Host == "localhost" || 
-                new Uri(origin).Host == "127.0.0.1")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); // Important for cookies/auth
+        policy.WithOrigins(
+                "http://book.softoncloud.com",
+                "https://book.softoncloud.com",
+                "http://localhost:5173",
+                "http://localhost:3000"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
+
+
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
@@ -98,6 +132,14 @@ builder.Services.AddScoped<IPartyContactPersonRepository, PartyContactPersonRepo
 builder.Services.AddScoped<IPartyReportingTagRepository, PartyReportingTagRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<IMasterRepository, MasterRepository>();
+builder.Services.AddScoped<IDeliveryChallanRepository, DeliveryChallanRepository>();
+builder.Services.AddScoped<ICompanyProfileRepository, CompanyProfileRepository>();
+builder.Services.AddScoped<IJournalRepository, JournalRepository>();
+builder.Services.AddScoped<IPayRecRepository, PayRecRepository>();
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
+builder.Services.AddScoped<IPermissionRepository, RolePermissionRepository>();
+builder.Services.AddScoped<IPartyTypeRepository, PartyTypeRepository>();
+
 
 // Register Services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -108,6 +150,15 @@ builder.Services.AddScoped<IPartyBankDetailsService, PartyBankDetailsService>();
 builder.Services.AddScoped<IPartyContactPersonService, PartyContactPersonService>();
 builder.Services.AddScoped<IPartyReportingTagService, PartyReportingTagService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<ISalePurRepository, SalePurRepository>();
+builder.Services.AddScoped<IPurchaseTransactionService, PurchaseTransactionService>();
+builder.Services.AddScoped<ISalesTransactionService, SalesTransactionService>();
+builder.Services.AddScoped<IDeliveryChallanService, DeliveryChallanService>();
+builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
+builder.Services.AddScoped<IJournalService, JournalService>();
+builder.Services.AddScoped<IPayRecService, PayRecService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IPartyTypeService, PartyTypeService>();
 
 builder.Services.AddScoped<EmailService>();
 
@@ -131,7 +182,8 @@ app.UseSwaggerUI(c =>
 //}
 
 app.UseHttpsRedirection();
-app.UseCors("AllowReactApp");
+app.UseStaticFiles();
+app.UseCors("AllowBookUI");
 app.UseAuthentication();
 app.UseMiddleware<TenantMiddleware>();
 app.UseAuthorization();

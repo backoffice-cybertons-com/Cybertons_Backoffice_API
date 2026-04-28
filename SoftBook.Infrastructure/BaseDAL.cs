@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System.Data;
-using SoftBook.Infrastructure.Interfaces;
+using SoftBook.Domain.RepositoryInterfaces;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -161,14 +161,16 @@ namespace SoftBook.Domain.Data
         await command.ExecuteNonQueryAsync();
     }
 
-    protected async Task<T?> ExecuteScalarAsync<T>(string storedProcedure, Action<NpgsqlCommand> buildParameters)
-    {
-        await using var connection = new NpgsqlConnection(GetConnectionString());
+		//protected async Task<T?> ExecuteScalarAsync<T>(string storedProcedure, Action<NpgsqlCommand> buildParameters)
+		protected async Task<T?> ExecuteScalarAsync<T>(string commandText, Action<NpgsqlCommand> buildParameters, CommandType commandType = CommandType.StoredProcedure)
+
+		{
+			await using var connection = new NpgsqlConnection(GetConnectionString());
         await connection.OpenAsync();
 
-        await using var command = new NpgsqlCommand(storedProcedure, connection)
+        await using var command = new NpgsqlCommand(commandText, connection)
         {
-            CommandType = CommandType.StoredProcedure,
+            CommandType = commandType,
             CommandTimeout = 60
         };
 
@@ -251,9 +253,25 @@ namespace SoftBook.Domain.Data
             }
             if (pgEx.SqlState == "23503")
             {
-                string message = (pgEx.Detail != null && (pgEx.Detail.Contains("not present in table") || pgEx.Detail.Contains("isPresent=false")))
-                    ? "The selected parent record (or ID) does not exist. Please check your IDs."
-                    : "This record cannot be deleted because it is being used by another process or record.";
+                // Better heuristic for FK violations
+                bool isMissingParent = pgEx.Detail != null && 
+                    (pgEx.Detail.Contains("not present in table", StringComparison.OrdinalIgnoreCase) || 
+                     pgEx.Detail.Contains("is not present", StringComparison.OrdinalIgnoreCase));
+                     
+                string message = isMissingParent 
+                    ? "A required related record doesn't exist. Please check your selections (e.g., party, delivery challan) are valid."
+                    : "This record cannot be deleted or updated because it is being used by another process or record.";
+                
+                // Append detail if available to help debugging
+                if (!string.IsNullOrEmpty(pgEx.Detail))
+                {
+                    // Redact full detail in production if needed, but useful for debugging
+                    message += " Details: " + pgEx.Detail;
+                }
+                if (!string.IsNullOrEmpty(pgEx.ConstraintName))
+                {
+                    message += " (Constraint: " + pgEx.ConstraintName + ")";
+                }
                 
                 return DbResult.Failure(message, pgEx.SqlState, pgEx.MessageText, pgEx.ConstraintName);
             }
@@ -263,7 +281,12 @@ namespace SoftBook.Domain.Data
             }
         }
         Console.WriteLine($"[Database Error] Generic Exception: {ex.Message}");
-        return DbResult.Failure("A database error occurred: " + ex.Message);
+        string genericMessage = "A database error occurred: " + ex.Message;
+        if (ex is PostgresException pex && !string.IsNullOrEmpty(pex.Detail))
+        {
+            genericMessage += " | Detail: " + pex.Detail;
+        }
+        return DbResult.Failure(genericMessage);
     }
   }
 }

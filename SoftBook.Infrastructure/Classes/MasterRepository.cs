@@ -5,7 +5,7 @@ using Npgsql;
 using System.Data;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.RepositoryInterfaces;
-using SoftBook.Infrastructure.Interfaces;
+using SoftBook.Domain.RepositoryInterfaces;
 using System.Dynamic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -19,16 +19,17 @@ namespace SoftBook.Infrastructure.Repositories.Classes
     {
         public MasterRepository(IConfiguration configuration, ITenantProvider tenantProvider) : base(configuration, tenantProvider) { }
 
-        public async Task<IEnumerable<dynamic>> GetAllAsync(string masterName, int? filterId = null)
+        public async Task<IEnumerable<dynamic>> GetAllAsync(string masterName, int? filterId = null, int? companyId = null)
         {
             // PostgreSQL function must be called via SELECT * FROM ...
             // Using named notation (:=) to be extra safe
             string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
             
+            Console.WriteLine($"[MasterRepository] GetAllAsync: masterName={masterName}, companyId={companyId ?? _tenantProvider?.CompanyId ?? 0}, userId={_tenantProvider?.UserId}");
             return await ExecuteReaderAsync(query, cmd =>
             {
                 cmd.Parameters.Add(new NpgsqlParameter("p_master_name", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = masterName });
-                cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = _tenantProvider?.CompanyId ?? 0 });
+                cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId ?? _tenantProvider?.CompanyId ?? 0 });
                 cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = DBNull.Value });
 
                 if (filterId.HasValue)
@@ -44,7 +45,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
             }, reader => MapToDynamic(reader), CommandType.Text);
         }
 
-        public async Task<dynamic?> GetByIdAsync(string masterName, int id)
+        public async Task<dynamic?> GetByIdAsync(string masterName, int id, int? companyId = null)
         {
             string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
 
@@ -52,18 +53,18 @@ namespace SoftBook.Infrastructure.Repositories.Classes
             {
                 cmd.Parameters.Add(new NpgsqlParameter("p_master_name", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = masterName });
                 cmd.Parameters.Add(new NpgsqlParameter("p_action", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = "SELECT_BY_ID" });
-                cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = _tenantProvider?.CompanyId ?? 0 });
+                cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId ?? _tenantProvider?.CompanyId ?? 0 });
                 cmd.Parameters.Add(new NpgsqlParameter("p_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
                 cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = DBNull.Value });
             }, reader => MapToDynamic(reader), CommandType.Text);
         }
 
-        public async Task<DbResult> InsertAsync(string masterName, string jsonData)
+        public async Task<DbResult> InsertAsync(string masterName, string jsonData, int? userId = null)
         {
             try
             {
                 var snakeJson = ToSnakeCaseJson(jsonData);
-                string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
+                string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data, p_user_id := @p_user_id)";
                 
                 var data = await ExecuteSingleReaderAsync(query, cmd =>
                 {
@@ -72,6 +73,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                     cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = _tenantProvider?.CompanyId ?? 0 });
                     cmd.Parameters.Add(new NpgsqlParameter("p_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = DBNull.Value });
                     cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = snakeJson });
+                    cmd.Parameters.Add(new NpgsqlParameter("p_user_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = (object)userId ?? DBNull.Value });
                 }, reader => MapToDynamic(reader), CommandType.Text);
 
                 return DbResult.Ok(data);
@@ -82,12 +84,12 @@ namespace SoftBook.Infrastructure.Repositories.Classes
             }
         }
 
-        public async Task<DbResult> UpdateAsync(string masterName, int id, string jsonData)
+        public async Task<DbResult> UpdateAsync(string masterName, int id, string jsonData, int? userId = null)
         {
             try
             {
                 var snakeJson = ToSnakeCaseJson(jsonData);
-                string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
+                string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data, p_user_id := @p_user_id)";
 
                 var data = await ExecuteSingleReaderAsync(query, cmd =>
                 {
@@ -96,6 +98,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                     cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = _tenantProvider?.CompanyId ?? 0 });
                     cmd.Parameters.Add(new NpgsqlParameter("p_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
                     cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = snakeJson });
+                    cmd.Parameters.Add(new NpgsqlParameter("p_user_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = (object)userId ?? DBNull.Value });
                 }, reader => MapToDynamic(reader), CommandType.Text);
 
                 return DbResult.Ok(data);
@@ -106,11 +109,11 @@ namespace SoftBook.Infrastructure.Repositories.Classes
             }
         }
 
-        public async Task<DbResult> DeleteAsync(string masterName, int id)
+        public async Task<DbResult> DeleteAsync(string masterName, int id, int? userId = null)
         {
             try
             {
-                string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
+                string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data, p_user_id := @p_user_id)";
 
                 await ExecuteSingleReaderAsync(query, cmd =>
                 {
@@ -119,6 +122,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                     cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = _tenantProvider?.CompanyId ?? 0 });
                     cmd.Parameters.Add(new NpgsqlParameter("p_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
                     cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = DBNull.Value });
+                    cmd.Parameters.Add(new NpgsqlParameter("p_user_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = (object)userId ?? DBNull.Value });
                 }, reader => reader[0], CommandType.Text);
 
                 return DbResult.Ok();

@@ -1,3 +1,5 @@
+using System;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using SoftBook.Domain.RepositoryInterfaces;
 using System.Collections.Generic;
@@ -11,6 +13,7 @@ namespace SoftBook.API.Controllers
     public abstract class BaseMasterController : ControllerBase
     {
         protected readonly IMasterRepository _repository;
+        private ITenantProvider? _tenantProvider;
         protected readonly string _masterName;
 
         protected BaseMasterController(IMasterRepository repository, string masterName)
@@ -18,6 +21,15 @@ namespace SoftBook.API.Controllers
             _repository = repository;
             _masterName = masterName;
         }
+
+        protected BaseMasterController(IMasterRepository repository, ITenantProvider tenantProvider, string masterName)
+        {
+            _repository = repository;
+            _tenantProvider = tenantProvider;
+            _masterName = masterName;
+        }
+
+        protected ITenantProvider? TenantProvider => _tenantProvider ??= HttpContext.RequestServices.GetService<ITenantProvider>();
 
         [HttpGet]
         public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAll([FromQuery] int? filterId = null)
@@ -37,7 +49,8 @@ namespace SoftBook.API.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> Create([FromBody] JsonElement data)
         {
-            var dbResult = await _repository.InsertAsync(_masterName, data.GetRawText());
+            var userId = TenantProvider?.UserId;
+            var dbResult = await _repository.InsertAsync(_masterName, data.GetRawText(), userId);
             if (!dbResult.Success)
             {
                 if (dbResult.Code == "23505") return Conflict(new { error = dbResult.Error });
@@ -49,7 +62,8 @@ namespace SoftBook.API.Controllers
         [HttpPut("{id}")]
         public virtual async Task<IActionResult> Update(int id, [FromBody] JsonElement data)
         {
-            var dbResult = await _repository.UpdateAsync(_masterName, id, data.GetRawText());
+            var userId = TenantProvider?.UserId;
+            var dbResult = await _repository.UpdateAsync(_masterName, id, data.GetRawText(), userId);
             if (!dbResult.Success)
             {
                 if (dbResult.Code == "23505") return Conflict(new { error = dbResult.Error });
@@ -61,7 +75,8 @@ namespace SoftBook.API.Controllers
         [HttpDelete("{id}")]
         public virtual async Task<IActionResult> Delete(int id)
         {
-            var dbResult = await _repository.DeleteAsync(_masterName, id);
+            var userId = TenantProvider?.UserId;
+            var dbResult = await _repository.DeleteAsync(_masterName, id, userId);
             if (!dbResult.Success)
             {
                  return BadRequest(new { error = dbResult.Error });

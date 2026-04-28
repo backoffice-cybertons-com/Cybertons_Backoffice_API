@@ -58,3 +58,15 @@ SoftBook.API/build_log.txt
 bin/
 obj/
 .vs/
+
+# IMPORTANT - DO NOT IGNORE STATIC FILES
+!SoftBook.API/wwwroot/
+!SoftBook.API/wwwroot/Uploads/
+
+# Debug / temp
+dbtest/
+*debug*.cs
+
+# Secrets
+appsettings.Development.json
+appsettings.Local.json

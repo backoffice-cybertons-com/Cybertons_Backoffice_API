@@ -1,9 +1,8 @@
-﻿-- =============================================
+-- =============================================
 -- PARTY MASTER FUNCTIONS
 -- =============================================
 
 -- Create Party
-DROP FUNCTION IF EXISTS sp_party_create(INT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR, VARCHAR, INT, INT, INT, NUMERIC, VARCHAR, VARCHAR, BOOLEAN, VARCHAR, VARCHAR, VARCHAR);
 CREATE OR REPLACE FUNCTION sp_party_create(
     p_company_id INT,
     p_party_type VARCHAR,
@@ -32,12 +31,22 @@ CREATE OR REPLACE FUNCTION sp_party_create(
     p_enable_portal BOOLEAN,
     p_website_url VARCHAR,
     p_department VARCHAR,
-    p_remarks VARCHAR
+    p_remarks VARCHAR,
+    p_user_id INT DEFAULT NULL
 )
 RETURNS INT AS $$
 DECLARE
     v_party_id INT;
+    v_tab_id INT;
 BEGIN
+    -- Authorization Guard
+    v_tab_id := CASE 
+        WHEN p_party_type = 'Customer' THEN 12 
+        WHEN p_party_type = 'Vendor' THEN 22 
+        ELSE 1011 
+    END;
+    PERFORM public.fn_validate_permission(p_user_id, p_company_id, v_tab_id, 'ADD');
+
     INSERT INTO tab_party_master (
         company_id, party_type, salutation, first_name, last_name, company_name, display_name, email,
         phone_work, phone_mobile, preferred_language, gst_treatment, place_of_supply, pan, gst_no,
@@ -59,7 +68,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Update Party
-DROP FUNCTION IF EXISTS sp_party_update(INT, INT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR, VARCHAR, INT, INT, INT, NUMERIC, VARCHAR, VARCHAR, BOOLEAN, VARCHAR, VARCHAR, VARCHAR);
 CREATE OR REPLACE FUNCTION sp_party_update(
     p_party_id INT,
     p_company_id INT,
@@ -89,10 +97,21 @@ CREATE OR REPLACE FUNCTION sp_party_update(
     p_enable_portal BOOLEAN,
     p_website_url VARCHAR,
     p_department VARCHAR,
-    p_remarks VARCHAR
+    p_remarks VARCHAR,
+    p_user_id INT DEFAULT NULL
 )
 RETURNS VOID AS $$
+DECLARE
+    v_tab_id INT;
 BEGIN
+    -- Authorization Guard
+    v_tab_id := CASE 
+        WHEN p_party_type = 'Customer' THEN 12 
+        WHEN p_party_type = 'Vendor' THEN 22 
+        ELSE 1011 
+    END;
+    PERFORM public.fn_validate_permission(p_user_id, p_company_id, v_tab_id, 'EDIT');
+
     UPDATE tab_party_master
     SET
         party_type = p_party_type, salutation = p_salutation, first_name = p_first_name, last_name = p_last_name,
@@ -110,10 +129,23 @@ $$ LANGUAGE plpgsql;
 -- Delete Party
 CREATE OR REPLACE FUNCTION sp_party_delete(
     p_party_id INT,
-    p_company_id INT
+    p_company_id INT,
+    p_user_id INT DEFAULT NULL
 )
 RETURNS VOID AS $$
+DECLARE
+    v_party_type VARCHAR;
+    v_tab_id INT;
 BEGIN
+    -- Get type to determine tab_id
+    SELECT party_type INTO v_party_type FROM tab_party_master WHERE party_id = p_party_id;
+    v_tab_id := CASE 
+        WHEN v_party_type = 'Customer' THEN 12 
+        WHEN v_party_type = 'Vendor' THEN 22 
+        ELSE 1011 
+    END;
+    PERFORM public.fn_validate_permission(p_user_id, p_company_id, v_tab_id, 'DELETE');
+
     DELETE FROM tab_party_master WHERE party_id = p_party_id AND company_id = p_company_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -152,6 +184,21 @@ BEGIN
     SELECT * FROM tab_party_master 
     WHERE company_id = p_company_id 
       AND (party_type = p_party_type OR p_party_type IS NULL);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get Party By Display Name
+DROP FUNCTION IF EXISTS sp_party_get_by_display_name(INT, TEXT);
+CREATE OR REPLACE FUNCTION sp_party_get_by_display_name(
+    p_company_id INT,
+    p_display_name TEXT
+)
+RETURNS SETOF tab_party_master AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM tab_party_master 
+    WHERE company_id = p_company_id 
+      AND LOWER(display_name) = LOWER(p_display_name);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -438,3 +485,42 @@ BEGIN
     SELECT * FROM tab_party_reporting_tags WHERE party_id = p_party_id AND company_id = p_company_id;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Get All Party Types
+CREATE OR REPLACE FUNCTION public.fn_get_all_party_types(p_company_id INTEGER)
+RETURNS TABLE (
+    party_type_id INTEGER,
+    company_id INTEGER,
+    party_type_code VARCHAR,
+    party_type_name VARCHAR,
+    description TEXT,
+    is_customer BOOLEAN,
+    is_vendor BOOLEAN,
+    is_active BOOLEAN,
+    sort_order INTEGER,
+    created_on TIMESTAMPTZ
+)
+LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        pt.party_type_id,
+        pt.company_id,
+        pt.party_type_code,
+        pt.party_type_name,
+        pt.description,
+        pt.is_customer,
+        pt.is_vendor,
+        pt.is_active,
+        pt.sort_order,
+        pt.created_on
+    FROM public.tab_party_type_master pt
+    WHERE pt.company_id = p_company_id 
+      AND pt.is_active = TRUE 
+      AND pt.party_type_name IS NOT NULL
+    ORDER BY pt.sort_order, pt.party_type_name;
+END;
+$$;

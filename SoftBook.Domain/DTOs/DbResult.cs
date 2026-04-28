@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using System;
 
 namespace SoftBook.Domain.DTOs

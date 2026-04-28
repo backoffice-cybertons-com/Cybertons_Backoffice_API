@@ -1,4 +1,8 @@
-using SoftBook.Infrastructure.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
+using SoftBook.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Configuration;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.Entities;
@@ -123,11 +127,17 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         private PartyAddress MapToPartyAddress(Npgsql.NpgsqlDataReader reader)
         {
+            var addressTypeId = SafeGetString(reader, "address_type_id");
             return new PartyAddress
             {
                 AddressId = SafeGetInt(reader, "address_id"),
                 PartyId = SafeGetInt(reader, "party_id"),
-                 AddressType = SafeGetString(reader, "address_type_id"),
+                AddressType = addressTypeId switch 
+                {
+                    "1" => "Billing",
+                    "2" => "Shipping",
+                    _ => addressTypeId // Fallback if already label
+                },
                 Attention = SafeGetString(reader, "attention"),
                 Country = SafeGetString(reader, "country"),
                 Street1 = SafeGetString(reader, "address_line1"),

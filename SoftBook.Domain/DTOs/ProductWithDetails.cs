@@ -1,4 +1,8 @@
-namespace SoftBook.Domain.Entities
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
+namespace SoftBook.Domain.DTOs
 {
   public class ProductWithDetails
   {
@@ -7,6 +11,7 @@ namespace SoftBook.Domain.Entities
     public string? Name { get; set; }
 
     // Prices
+    public decimal? MRP { get; set; }
     public decimal? SellingPrice { get; set; }
     public decimal? SellingPrice2 { get; set; }
     public decimal? SellingPrice3 { get; set; }
@@ -41,6 +46,13 @@ namespace SoftBook.Domain.Entities
     public decimal? OpeningPrice { get; set; }
     public decimal? OpeningAmount { get; set; }
     public string? PreferredVendorName { get; set; }
+
+    // New fields for Purchase Transaction
+
+    public decimal? CGSTPer { get; set; }
+    public decimal? SGSTPer { get; set; }
+    public int? UnitId { get; set; }
+    public int? ProductPackingUnit { get; set; }
 
     // Computed property for HSN/SAC display
     public string? HSNOrSACCode => Type == "Goods" ? HSNCode : SACCode;

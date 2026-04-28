@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using SoftBook.Domain.Services.Interfaces;
 using SoftBook.Application.Services.Interfaces;
@@ -7,7 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using SoftBook.Infrastructure.Interfaces;
+using SoftBook.Domain.RepositoryInterfaces;
 
 namespace SoftBook.API.Controllers
 {
@@ -136,7 +140,9 @@ namespace SoftBook.API.Controllers
                     passwordHash,
                     request.Email,
                     request.FullName,
-                    request.Phone);
+                    request.Phone,
+                    request.RoleId,
+                    request.CompanyId);
                 
                 if (newUser != null) return Ok(newUser);
                 return BadRequest("Failed to register user.");
@@ -165,7 +171,7 @@ namespace SoftBook.API.Controllers
         [HttpGet("{userId}/permissions")]
         public async Task<IActionResult> GetPermissions(int userId)
         {
-            var permissions = await _userService.GetSidebarPermissionsAsync(userId);
+            var permissions = await _userService.GetSidebarPermissionsAsync(userId, _tenantProvider.CompanyId ?? 0);
             return Ok(permissions);
         }
 
@@ -239,6 +245,8 @@ namespace SoftBook.API.Controllers
         public string Email { get; set; }
         public string FullName { get; set; }
         public string Phone { get; set; }
+        public int? RoleId { get; set; }
+        public int? CompanyId { get; set; }
     }
 
     public class UpdatePasswordRequest

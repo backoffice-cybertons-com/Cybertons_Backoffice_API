@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using SoftBook.Domain.Entities;
 using SoftBook.Domain.RepositoryInterfaces;
 using SoftBook.Application.Services.Interfaces;
@@ -30,9 +34,9 @@ namespace SoftBook.Application.Services.Classes
 
         public async Task<List<Party>> GetAllAsync() => await _partyRepository.GetAllAsync();
         public async Task<Party?> GetByIdAsync(int id) => await _partyRepository.GetByIdAsync(id);
-        public async Task<DbResult> InsertAsync(Party entity) => await _partyRepository.InsertAsync(entity);
-        public async Task<DbResult> UpdateAsync(Party entity) => await _partyRepository.UpdateAsync(entity);
-        public async Task<DbResult> DeleteAsync(int id)
+        public async Task<DbResult> InsertAsync(Party entity, int? userId = null) => await _partyRepository.InsertAsync(entity, userId);
+        public async Task<DbResult> UpdateAsync(Party entity, int? userId = null) => await _partyRepository.UpdateAsync(entity, userId);
+        public async Task<DbResult> DeleteAsync(int id, int? userId = null)
         {
             try
             {
@@ -54,7 +58,7 @@ namespace SoftBook.Application.Services.Classes
                 foreach (var item in tags) await _tagRepository.DeleteAsync(item.PartyReportingTagId);
 
                 // 5. Delete Party
-                return await _partyRepository.DeleteAsync(id);
+                return await _partyRepository.DeleteAsync(id, userId);
             }
             catch (Exception ex)
             {
@@ -64,10 +68,10 @@ namespace SoftBook.Application.Services.Classes
         }
         public async Task<List<Party>> GetByPartyTypeAsync(string partyType) => await _partyRepository.GetByPartyTypeAsync(partyType);
 
-        public async Task<DbResult> InsertCompositeAsync(PartyViewModel viewModel)
+        public async Task<DbResult> InsertCompositeAsync(PartyViewModel viewModel, int? userId = null)
         {
             // 1. Insert Party
-            var result = await _partyRepository.InsertAsync(viewModel.Party);
+            var result = await _partyRepository.InsertAsync(viewModel.Party, userId);
             if (!result.Success) return result;
 
             int partyId = viewModel.Party.PartyId;
@@ -124,7 +128,7 @@ namespace SoftBook.Application.Services.Classes
             return DbResult.Ok(viewModel.Party);
         }
 
-        public async Task<DbResult> UpdateCompositeAsync(PartyViewModel viewModel)
+        public async Task<DbResult> UpdateCompositeAsync(PartyViewModel viewModel, int? userId = null)
         {
             int partyId = viewModel.Party.PartyId;
             

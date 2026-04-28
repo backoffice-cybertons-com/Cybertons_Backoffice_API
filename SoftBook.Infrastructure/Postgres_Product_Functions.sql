@@ -31,10 +31,14 @@ CREATE OR REPLACE FUNCTION sp_product_create(
     p_min_quantity NUMERIC,
     p_max_quantity NUMERIC,
     p_re_order_quantity NUMERIC,
-    p_tax_exemption_id INT
+    p_tax_exemption_id INT,
+    p_user_id INT DEFAULT NULL
 )
 RETURNS VOID AS $$
 BEGIN
+    -- Authorization Guard
+    PERFORM public.fn_validate_permission(p_user_id, p_company_id, 11, 'ADD');
+
     INSERT INTO tab_product_master (
         company_id, product_type, product_name, selling_price, sales_account, sales_description,
         cost_price, purchase_account, purchase_description, preferred_vendor_id,
@@ -88,10 +92,14 @@ CREATE OR REPLACE FUNCTION sp_product_update(
     p_min_quantity NUMERIC,
     p_max_quantity NUMERIC,
     p_re_order_quantity NUMERIC,
-    p_tax_exemption_id INT
+    p_tax_exemption_id INT,
+    p_user_id INT DEFAULT NULL
 )
 RETURNS VOID AS $$
 BEGIN
+    -- Authorization Guard
+    PERFORM public.fn_validate_permission(p_user_id, p_company_id, 11, 'EDIT');
+
     UPDATE tab_product_master
     SET
         product_type = p_product_type,
@@ -132,10 +140,14 @@ $$ LANGUAGE plpgsql;
 -- Product Delete
 CREATE OR REPLACE FUNCTION sp_product_delete(
     p_product_id INT,
-    p_company_id INT
+    p_company_id INT,
+    p_user_id INT DEFAULT NULL
 )
 RETURNS VOID AS $$
 BEGIN
+    -- Authorization Guard
+    PERFORM public.fn_validate_permission(p_user_id, p_company_id, 11, 'DELETE');
+
     DELETE FROM tab_product_master
     WHERE product_id = p_product_id AND company_id = p_company_id;
 END;
@@ -167,9 +179,35 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Get All Products with Details (Joins)
+DROP FUNCTION IF EXISTS public.sp_product_get_all_with_details(integer);
+
 CREATE OR REPLACE FUNCTION public.sp_product_get_all_with_details(
 	p_company_id integer)
-    RETURNS TABLE(product_id integer, product_name character varying, product_type character varying, selling_price numeric, sales_description text, purchase_description text, cost_price numeric, tax_group_id integer, tax_preference_id integer, base_unit character varying, packing_unit character varying, product_group_name character varying, hsn_code character varying, sac_code character varying, tax_group_name character varying, min_quantity numeric, max_quantity numeric, re_order_quantity numeric) 
+    RETURNS TABLE(
+        product_id integer, 
+        product_name character varying, 
+        product_type character varying, 
+        mrp numeric,
+        selling_price numeric, 
+        sales_description text, 
+        purchase_description text, 
+        cost_price numeric, 
+        tax_group_id integer, 
+        tax_preference_id integer, 
+        base_unit character varying, 
+        packing_unit character varying, 
+        product_group_name character varying, 
+        hsn_code character varying, 
+        sac_code character varying, 
+        tax_group_name character varying, 
+        min_quantity numeric, 
+        max_quantity numeric, 
+        re_order_quantity numeric,
+        cgst_per numeric,
+        sgst_per numeric,
+        unit_id integer,
+        product_packing_unit integer
+    ) 
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
@@ -182,7 +220,7 @@ BEGIN
         P.product_id,
         P.product_name,
         P.product_type,
-
+        P.mrp,
         P.selling_price,
         P.sales_description,
         P.purchase_description,
@@ -203,7 +241,12 @@ BEGIN
 
         P.min_quantity,
         P.max_quantity,
-        P.re_order_quantity
+        P.re_order_quantity,
+
+        TG.cgst_per,
+        TG.sgst_per,
+        P.unit_id,
+        P.product_packing_unit
 
     FROM tab_product_master P
 

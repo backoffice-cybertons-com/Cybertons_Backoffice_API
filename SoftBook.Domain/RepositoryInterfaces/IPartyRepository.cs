@@ -1,3 +1,5 @@
+using System;
+using System.Data;
 using SoftBook.Domain.Entities;
 using SoftBook.Domain.DTOs;
 using System.Collections.Generic;
@@ -9,9 +11,9 @@ namespace SoftBook.Domain.RepositoryInterfaces
   {
     Task<List<Party>> GetAllAsync();
     Task<Party?> GetByIdAsync(int id);
-    Task<DbResult> InsertAsync(Party party);
-    Task<DbResult> UpdateAsync(Party party);
-    Task<DbResult> DeleteAsync(int id);
+    Task<DbResult> InsertAsync(Party party, int? userId = null);
+    Task<DbResult> UpdateAsync(Party party, int? userId = null);
+    Task<DbResult> DeleteAsync(int id, int? userId = null);
     Task<List<Party>> GetByPartyTypeAsync(string partyType);
   }
 }

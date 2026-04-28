@@ -13,6 +13,8 @@ CREATE PROCEDURE [dbo].[sp_User_Register]
     @Email NVARCHAR(200),
     @FullName NVARCHAR(200) = NULL,
     @Phone NVARCHAR(20) = NULL,
+    @p_role_id INT = NULL,
+    @p_company_id INT = NULL,
     @UserId INT OUTPUT
 AS
 BEGIN
@@ -40,6 +42,13 @@ BEGIN
     
     -- Return the new user ID
     SET @UserId = SCOPE_IDENTITY();
+    
+    -- If role and company exist, map user role
+    IF @p_role_id IS NOT NULL AND @p_company_id IS NOT NULL
+    BEGIN
+        INSERT INTO [dbo].[TabUserRole] (UserId, RoleId, CompanyId)
+        VALUES (@UserId, @p_role_id, @p_company_id);
+    END
     
     -- Return the newly created user
     SELECT [UserId], [Username], [Email], [FullName], [Phone], [IsActive]

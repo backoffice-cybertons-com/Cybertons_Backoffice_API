@@ -61,3 +61,6 @@ ALTER TABLE tab_payment_mode_master ADD CONSTRAINT uq_payment_mode UNIQUE (compa
 
 -- 20. Payment Term Master
 ALTER TABLE tab_payment_term_master ADD CONSTRAINT uq_payment_term UNIQUE (company_id, term_name);
+
+-- 21. Party Master
+ALTER TABLE tab_party_master ADD CONSTRAINT uq_party_display_name UNIQUE (company_id, display_name);

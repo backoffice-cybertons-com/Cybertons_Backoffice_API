@@ -1,4 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Data;
 using SoftBook.Domain.Entities;
+using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
 using SoftBook.Application.Services.Interfaces;
 
@@ -23,19 +28,19 @@ namespace SoftBook.Application.Services.Classes
 			return await _repository.GetByIdAsync(id);
 		}
 
-		public async Task InsertAsync(Product entity)
+		public async Task<DbResult> InsertAsync(Product entity, int? userId = null)
 		{
-			await _repository.InsertAsync(entity);
+			return await _repository.InsertAsync(entity, userId);
 		}
 
-		public async Task UpdateAsync(Product entity)
+		public async Task<DbResult> UpdateAsync(Product entity, int? userId = null)
 		{
-			await _repository.UpdateAsync(entity);
+			return await _repository.UpdateAsync(entity, userId);
 		}
 
-		public async Task DeleteAsync(int id)
+		public async Task<DbResult> DeleteAsync(int id, int? userId = null)
 		{
-			await _repository.DeleteAsync(id);
+			return await _repository.DeleteAsync(id, userId);
 		}
 
 		public async Task<List<ProductWithDetails>> GetAllWithDetailsAsync()

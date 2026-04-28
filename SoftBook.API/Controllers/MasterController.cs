@@ -1,3 +1,5 @@
+using System;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using SoftBook.Domain.RepositoryInterfaces;
 using System.Collections.Generic;
@@ -12,10 +14,12 @@ namespace SoftBook.API.Controllers
     public class MasterController : ControllerBase
     {
         private readonly IMasterRepository _repository;
+        private readonly ITenantProvider _tenantProvider;
 
-        public MasterController(IMasterRepository repository)
+        public MasterController(IMasterRepository repository, ITenantProvider tenantProvider)
         {
             _repository = repository;
+            _tenantProvider = tenantProvider;
         }
 
         [HttpGet("{masterName}")]
@@ -36,7 +40,7 @@ namespace SoftBook.API.Controllers
         [HttpPost("{masterName}")]
         public async Task<IActionResult> Create(string masterName, [FromBody] JsonElement data)
         {
-            var result = await _repository.InsertAsync(masterName, data.GetRawText());
+            var result = await _repository.InsertAsync(masterName, data.GetRawText(), _tenantProvider.UserId);
             if (!result.Success)
             {
                 if (result.Code == "23505") return Conflict(new { error = result.Error });
@@ -48,7 +52,7 @@ namespace SoftBook.API.Controllers
         [HttpPut("{masterName}/{id}")]
         public async Task<IActionResult> Update(string masterName, int id, [FromBody] JsonElement data)
         {
-            var result = await _repository.UpdateAsync(masterName, id, data.GetRawText());
+            var result = await _repository.UpdateAsync(masterName, id, data.GetRawText(), _tenantProvider.UserId);
             if (!result.Success)
             {
                 if (result.Code == "23505") return Conflict(new { error = result.Error });
@@ -60,7 +64,7 @@ namespace SoftBook.API.Controllers
         [HttpDelete("{masterName}/{id}")]
         public async Task<IActionResult> Delete(string masterName, int id)
         {
-            var result = await _repository.DeleteAsync(masterName, id);
+            var result = await _repository.DeleteAsync(masterName, id, _tenantProvider.UserId);
             if (!result.Success)
             {
                 if (result.Code == "23503") return Conflict(new { error = result.Error });
