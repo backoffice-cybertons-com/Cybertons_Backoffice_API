@@ -398,6 +398,32 @@ namespace SoftBook.API.Controllers
             }
         }
 
+        //by Diya 04/27
+        ///reports/gstr-3b
+        [HttpGet("GSTR-3B-Report")]
+        public async Task<IActionResult> GetGstr3b(
+            [FromQuery] int companyId,
+            [FromQuery] string? where,
+              [FromQuery] string Type)
+        {
+            try
+            {
+                Console.WriteLine($"[ReportController] Fetching Gstr3b. CompanyId: {companyId},  Where: {where}, Type:{Type}");
+                if (companyId == 0)
+                {
+                    Console.WriteLine("[ReportController] Warning: CompanyId is 0. Returning BadRequest.");
+                    return BadRequest("Company context not found.");
+                }
+
+                var report = await _reportService.GetGSTR3bAsync(companyId, where, Type);
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
     }
 }
 

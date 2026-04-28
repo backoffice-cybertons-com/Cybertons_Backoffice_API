@@ -967,6 +967,105 @@ namespace SoftBook.Infrastructure.Classes
                     }
                 }
 
+
+        //by Diya
+        //gst rpt
+        public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(
+      int companyId,
+      string? where,
+      string reportPart)
+        {
+            try
+            {
+                return await ExecuteReaderAsync(
+                    "SELECT * FROM fn_gst_report(@p_company_id,@p_where_clause,@p_report_part)",
+
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                        {
+                            Value = companyId
+                        });
+
+                        cmd.Parameters.Add(new NpgsqlParameter("p_where_clause", NpgsqlTypes.NpgsqlDbType.Text)
+                        {
+                            Value = where ?? ""
+                        });
+
+                        cmd.Parameters.Add(new NpgsqlParameter("p_report_part", NpgsqlTypes.NpgsqlDbType.Text)
+                        {
+                            Value = reportPart ?? "3.1"
+                        });
+                    },
+
+                    reader =>
+                    {
+                        return new GetGSTR3bDTO
+                        {
+                            Section =
+                                reader.IsDBNull(reader.GetOrdinal("section"))
+                                ? ""
+                                : reader.GetString(
+                                    reader.GetOrdinal("section")),
+
+                            TaxableAmt =
+                                reader.IsDBNull(reader.GetOrdinal("taxable_amt"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("taxable_amt")),
+
+                            IgstAmt =
+                                reader.IsDBNull(reader.GetOrdinal("igst_amt"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("igst_amt")),
+
+                            CgstAmt =
+                                reader.IsDBNull(reader.GetOrdinal("cgst_amt"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("cgst_amt")),
+
+                            SgstAmt =
+                                reader.IsDBNull(reader.GetOrdinal("sgst_amt"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("sgst_amt")),
+
+                            Cess =
+                                reader.IsDBNull(reader.GetOrdinal("cess"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("cess")),
+
+                            InterStateSupplies =
+                                reader.IsDBNull(reader.GetOrdinal("inter_state_supplies"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("inter_state_supplies")),
+
+                            IntraStateSupplies =
+                                reader.IsDBNull(reader.GetOrdinal("intra_state_supplies"))
+                                ? 0
+                                : reader.GetDecimal(
+                                    reader.GetOrdinal("intra_state_supplies"))
+                        };
+                    },
+
+                    CommandType.Text
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetGSTR3bAsync:");
+                Console.WriteLine($"CompanyId: {companyId}");
+                Console.WriteLine($"Where: {where}");
+                Console.WriteLine($"ReportPart: {reportPart}");
+                Console.WriteLine($"Error: {ex.Message}");
+
+                throw;
+            }
+        }
     }
 }
 
