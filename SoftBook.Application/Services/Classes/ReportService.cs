@@ -104,6 +104,14 @@ namespace SoftBook.Application.Services.Classes
         {
             return await _reportRepository.GetSalePurchaseRegisterDatewiseComparisonAsync(companyId, where, compareMode);
         }
+
+
+        //by diya 4/27
+        //GSTR-3b
+        public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type)
+        {
+            return await _reportRepository.GetGSTR3bAsync(companyId, where, Type);
+        }
     }
 }
 
