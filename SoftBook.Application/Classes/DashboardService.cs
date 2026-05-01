@@ -22,7 +22,7 @@ namespace SoftBook.Application.Classes
             {
                 var today = DateTime.Today;
                 switch (request.FilterType.ToUpper())
-                {
+                {   
                     case "TODAY":
                         request.FromDate = today;
                         request.ToDate = today;
