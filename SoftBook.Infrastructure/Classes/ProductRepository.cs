@@ -36,6 +36,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					ProductId = SafeGetInt(reader, "product_id"),
 					Type = type,
 					Name = name,
+					ShortName = SafeGetString(reader, "short_name"),
 					MRP = reader["mrp"] != DBNull.Value ? Convert.ToDecimal(reader["mrp"]) : (decimal?)null,
 					SellingPrice = reader["selling_price"] != DBNull.Value ? Convert.ToDecimal(reader["selling_price"]) : (decimal?)null,
 					SalesAccount = SafeGetString(reader, "sales_account"),
@@ -99,6 +100,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 						ProductId = SafeGetInt(reader, "product_id"),
 						Type = type,
 						Name = name,
+						ShortName = SafeGetString(reader, "short_name"),
 						MRP = reader["mrp"] != DBNull.Value ? Convert.ToDecimal(reader["mrp"]) : (decimal?)null,
 						SellingPrice = reader["selling_price"] != DBNull.Value ? Convert.ToDecimal(reader["selling_price"]) : (decimal?)null,
 						SalesAccount = SafeGetString(reader, "sales_account"),
@@ -146,6 +148,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_type", (object?)product.Type ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_name", (object?)product.Name ?? DBNull.Value);
+					cmd.Parameters.AddWithValue("p_short_name", (object?)product.ShortName ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_mrp", (object?)product.MRP ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_selling_price", (object?)product.SellingPrice ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_sales_account", (object?)product.SalesAccount ?? DBNull.Value);
@@ -199,6 +202,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_type", (object?)product.Type ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_name", (object?)product.Name ?? DBNull.Value);
+					cmd.Parameters.AddWithValue("p_short_name", (object?)product.ShortName ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_mrp", (object?)product.MRP ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_selling_price", (object?)product.SellingPrice ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_sales_account", (object?)product.SalesAccount ?? DBNull.Value);
@@ -273,6 +277,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 				   ProductId = SafeGetInt(reader, "product_id"),
 				   Type = SafeGetString(reader, "product_type"),
 				   Name = SafeGetString(reader, "product_name"),
+				   ShortName = SafeGetString(reader, "short_name"),
 				   MRP = reader["mrp"] != DBNull.Value ? Convert.ToDecimal(reader["mrp"]) : (decimal?)null,
 				   SellingPrice = reader["selling_price"] != DBNull.Value ? Convert.ToDecimal(reader["selling_price"]) : (decimal?)null,
 				   SalesDescription = SafeGetString(reader, "sales_description"),

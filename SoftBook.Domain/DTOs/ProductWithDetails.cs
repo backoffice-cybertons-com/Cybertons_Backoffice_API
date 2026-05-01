@@ -9,6 +9,7 @@ namespace SoftBook.Domain.DTOs
     public int ProductId { get; set; }
     public string? Type { get; set; }
     public string? Name { get; set; }
+    public string? ShortName { get; set; }
 
     // Prices
     public decimal? MRP { get; set; }

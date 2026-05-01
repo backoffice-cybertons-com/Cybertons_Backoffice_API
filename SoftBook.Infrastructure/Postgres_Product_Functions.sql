@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION sp_product_create(
     p_company_id INT,
     p_product_type VARCHAR,
     p_product_name VARCHAR,
+    p_short_name VARCHAR,
     p_selling_price NUMERIC,
     p_sales_account VARCHAR,
     p_sales_description VARCHAR,
@@ -40,7 +41,7 @@ BEGIN
     PERFORM public.fn_validate_permission(p_user_id, p_company_id, 11, 'ADD');
 
     INSERT INTO tab_product_master (
-        company_id, product_type, product_name, selling_price, sales_account, sales_description,
+        company_id, product_type, product_name, short_name, selling_price, sales_account, sales_description,
         cost_price, purchase_account, purchase_description, preferred_vendor_id,
         sellable, purchasable, unit_id, hsn_id, sac_id, tax_preference_id, tax_group_id,
         product_group_id, product_packing_unit, opening_quantity, opening_price, opening_amount,
@@ -48,7 +49,7 @@ BEGIN
         selling_price_4, selling_price_5, min_quantity, max_quantity, re_order_quantity, tax_exemption_id
     )
     VALUES (
-        p_company_id, p_product_type, p_product_name, p_selling_price, p_sales_account, p_sales_description,
+        p_company_id, p_product_type, p_product_name, p_short_name, p_selling_price, p_sales_account, p_sales_description,
         p_cost_price, p_purchase_account, p_purchase_description, p_preferred_vendor_id,
         COALESCE(p_sellable, TRUE), COALESCE(p_purchasable, TRUE), p_unit_id, p_hsn_id, p_sac_id, p_tax_preference_id, p_tax_group_id,
         p_product_group_id, p_product_packing_unit, p_opening_quantity, p_opening_price, p_opening_amount,
@@ -64,6 +65,7 @@ CREATE OR REPLACE FUNCTION sp_product_update(
     p_company_id INT,
     p_product_type VARCHAR,
     p_product_name VARCHAR,
+    p_short_name VARCHAR,
     p_selling_price NUMERIC,
     p_sales_account VARCHAR,
     p_sales_description VARCHAR,
@@ -104,6 +106,7 @@ BEGIN
     SET
         product_type = p_product_type,
         product_name = p_product_name,
+        short_name = p_short_name,
         selling_price = p_selling_price,
         sales_account = p_sales_account,
         sales_description = p_sales_description,
@@ -186,6 +189,7 @@ CREATE OR REPLACE FUNCTION public.sp_product_get_all_with_details(
     RETURNS TABLE(
         product_id integer, 
         product_name character varying, 
+        short_name character varying,
         product_type character varying, 
         mrp numeric,
         selling_price numeric, 
@@ -219,6 +223,7 @@ BEGIN
     SELECT
         P.product_id,
         P.product_name,
+        P.short_name,
         P.product_type,
         P.mrp,
         P.selling_price,
@@ -284,6 +289,7 @@ CREATE OR REPLACE FUNCTION fn_product_master(
     p_product_id INT DEFAULT NULL,
     p_product_type VARCHAR DEFAULT NULL,
     p_product_name VARCHAR DEFAULT NULL,
+    p_short_name VARCHAR DEFAULT NULL,
     p_selling_price NUMERIC DEFAULT NULL,
     p_sales_account VARCHAR DEFAULT NULL,
     p_sales_description VARCHAR DEFAULT NULL,
@@ -322,7 +328,7 @@ BEGIN
         RETURN QUERY SELECT * FROM sp_product_get_by_id(p_product_id, p_company_id);
     ELSIF p_action = 'INSERT' THEN
         PERFORM sp_product_create(
-            p_company_id, p_product_type, p_product_name, p_selling_price, p_sales_account, p_sales_description,
+            p_company_id, p_product_type, p_product_name, p_short_name, p_selling_price, p_sales_account, p_sales_description,
             p_cost_price, p_purchase_account, p_purchase_description, p_preferred_vendor_id,
             p_sellable, p_purchasable, p_unit_id, p_hsn_id, p_sac_id, p_tax_preference_id, p_tax_group_id,
             p_product_group_id, p_product_packing_unit, p_opening_quantity, p_opening_price, p_opening_amount,
@@ -332,7 +338,7 @@ BEGIN
         RETURN;
     ELSIF p_action = 'UPDATE' THEN
         PERFORM sp_product_update(
-            p_product_id, p_company_id, p_product_type, p_product_name, p_selling_price, p_sales_account, p_sales_description,
+            p_product_id, p_company_id, p_product_type, p_product_name, p_short_name, p_selling_price, p_sales_account, p_sales_description,
             p_cost_price, p_purchase_account, p_purchase_description, p_preferred_vendor_id,
             p_sellable, p_purchasable, p_unit_id, p_hsn_id, p_sac_id, p_tax_preference_id, p_tax_group_id,
             p_product_group_id, p_product_packing_unit, p_opening_quantity, p_opening_price, p_opening_amount,
