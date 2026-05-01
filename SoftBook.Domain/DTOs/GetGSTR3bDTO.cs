@@ -22,4 +22,6 @@ namespace SoftBook.Domain.DTOs
 
         public decimal IntraStateSupplies { get; set; }
     }
+
+
 }

@@ -972,7 +972,7 @@ namespace SoftBook.Infrastructure.Classes
         //gst rpt
         public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(
       int companyId,
-      string? where,
+      string where,
       string reportPart)
         {
             try
@@ -1063,6 +1063,73 @@ namespace SoftBook.Infrastructure.Classes
                 Console.WriteLine($"ReportPart: {reportPart}");
                 Console.WriteLine($"Error: {ex.Message}");
 
+                throw;
+            }
+        }
+
+
+        public async Task<List<GstrExcelRow>> GetGstr1ExcelExportAsync(
+       int companyId,
+       DateOnly fromDate,
+       DateOnly toDate)
+        {
+            try
+            {
+                return (await ExecuteReaderAsync(
+                                      @"SELECT * FROM public.fn_gstr1_excel_export(
+ @CompanyId,
+ @FromDate::date,
+ @ToDate::date
+)",
+
+                    cmd =>
+                    {
+                        cmd.Parameters.AddWithValue("@CompanyId", companyId);
+                        cmd.Parameters.AddWithValue(  "@FromDate", fromDate.ToDateTime(TimeOnly.MinValue) );
+
+                        cmd.Parameters.AddWithValue( "@ToDate",toDate.ToDateTime(TimeOnly.MinValue));
+                    },
+
+                    reader => new GstrExcelRow
+                    {
+                        Sheet_Name = reader["sheet_name"]?.ToString(),
+
+                        Col1 = reader["col1"]?.ToString(),
+                        Col2 = reader["col2"]?.ToString(),
+                        Col3 = reader["col3"]?.ToString(),
+                        Col4 = reader["col4"]?.ToString(),
+                        Col5 = reader["col5"]?.ToString(),
+                        Col6 = reader["col6"]?.ToString(),
+                        Col7 = reader["col7"]?.ToString(),
+                        Col8 = reader["col8"]?.ToString(),
+                        Col9 = reader["col9"]?.ToString(),
+                        Col10 = reader["col10"]?.ToString(),
+                        Col11 = reader["col11"]?.ToString(),
+                        Col12 = reader["col12"]?.ToString(),
+                        Col13 = reader["col13"]?.ToString(),
+                        Col14 = reader["col14"]?.ToString(),
+                        Col15 = reader["col15"]?.ToString(),
+                        Col16 = reader["col16"]?.ToString(),
+                        Col17 = reader["col17"]?.ToString(),
+                        Col18 = reader["col18"]?.ToString(),
+                        Col19 = reader["col19"]?.ToString(),
+                        Col20 = reader["col20"]?.ToString(),
+                        Col21 = reader["col21"]?.ToString(),
+                        Col22 = reader["col22"]?.ToString(),
+                        Col23 = reader["col23"]?.ToString(),
+                        Col24 = reader["col24"]?.ToString(),
+                        Col25 = reader["col25"]?.ToString(),
+                        Col26 = reader["col26"]?.ToString(),
+                        Col27 = reader["col27"]?.ToString(),
+                        Col28 = reader["col28"]?.ToString()
+                    },
+
+                    CommandType.Text
+
+                )).ToList();
+            }
+            catch
+            {
                 throw;
             }
         }

@@ -171,6 +171,7 @@ using Microsoft.AspNetCore.Mvc;
 using SoftBook.Application.Services.Interfaces;
 using SoftBook.Domain.RepositoryInterfaces;
 using System.Collections.Generic;
+using ClosedXML.Excel;
 
 namespace SoftBook.API.Controllers
 {
@@ -334,7 +335,7 @@ namespace SoftBook.API.Controllers
 
 
         [HttpGet("trial-balance")]
-        public async Task<IActionResult> GetTrialBalance(int companyId, DateTime date)
+        public async Task<IActionResult> GetTrialBalance([FromQuery] int companyId, [FromQuery] DateTime date)
         {
             var result = await _reportService.GetTrialBalance(companyId, date);
             return Ok(result);
@@ -423,6 +424,26 @@ namespace SoftBook.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpGet("gstr1-export")]
+        public async Task<IActionResult> ExportGstr1Excel(
+            [FromQuery] int companyId,
+            [FromQuery] DateOnly fromDate,
+            [FromQuery] DateOnly toDate)
+        {
+            var file = await _reportService
+               .GenerateGstr1ExcelAsync(
+                  companyId,
+                  fromDate,
+                  toDate);
+
+            return File(
+               file,
+               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+               "GSTR1.xlsx"
+            );
+        }
+
 
     }
 }

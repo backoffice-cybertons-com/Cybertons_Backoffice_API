@@ -46,5 +46,9 @@ namespace SoftBook.Application.Services.Interfaces
 
         //by Diya 27/04
         Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type);
+        Task<byte[]> GenerateGstr1ExcelAsync(
+   int companyId,
+   DateOnly fromDate,
+   DateOnly toDate);
     }
 }

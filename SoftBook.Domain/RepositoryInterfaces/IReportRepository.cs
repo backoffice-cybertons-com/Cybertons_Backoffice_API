@@ -50,6 +50,11 @@ namespace SoftBook.Domain.RepositoryInterfaces
 
         Task<IEnumerable<SalePurchaseRegisterDatewiseComparisonDTO>> GetSalePurchaseRegisterDatewiseComparisonAsync(int companyId, string? where, string compareMode);
         //gst
-        Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type);
+        Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string where, string Type);
+        Task<List<GstrExcelRow>> GetGstr1ExcelExportAsync(
+   int companyId,
+   DateOnly fromDate,
+   DateOnly toDate);
+
     }
 }
