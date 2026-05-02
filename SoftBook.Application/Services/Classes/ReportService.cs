@@ -112,6 +112,12 @@ namespace SoftBook.Application.Services.Classes
         {
             return await _reportRepository.GetGSTR3bAsync(companyId, where, Type);
         }
+
+        // Ledger Summary Datewise - Hetak Modi 02-05-2026
+        public async Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetLedgerSummaryDatewiseAsync(accountCode, fromDate, toDate);
+        }
     }
 }
 

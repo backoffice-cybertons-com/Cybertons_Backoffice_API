@@ -424,6 +424,28 @@ namespace SoftBook.API.Controllers
             }
         }
 
+        // Ledger Summary Datewise - Hetak Modi 02-05-2026
+        [HttpGet("ledger-summary-datewise")]
+        public async Task<IActionResult> GetLedgerSummaryDatewise(
+            [FromQuery] int accountCode,
+            [FromQuery] DateTime fromDate,
+            [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                if (accountCode == 0)
+                    return BadRequest("accountCode is required.");
+
+                var result = await _reportService.GetLedgerSummaryDatewiseAsync(accountCode, fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ReportController] ledger-summary-datewise error: {ex.Message}");
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
     }
 }
 
