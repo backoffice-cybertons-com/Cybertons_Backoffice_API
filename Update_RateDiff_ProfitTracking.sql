@@ -197,6 +197,7 @@ CREATE OR REPLACE FUNCTION fn_sale_pur(
     p_deleted_by INT DEFAULT NULL,
     p_delete_flag BOOLEAN DEFAULT FALSE,
     p_rate_diff NUMERIC DEFAULT 0,
+    p_total_quantity NUMERIC DEFAULT 0,
     p_user_id INT DEFAULT NULL
 )
 RETURNS SETOF tab_sale_pur AS $$
@@ -229,11 +230,11 @@ BEGIN
             company_id, invoice_series, invoice_series_increment_number, inv_type, inv_sub_type, inv_category,
             sales_order_no, sales_order_date, po_order_no, po_order_date, bill_id, delivery_no, delivery_date,
             vehicle_no, transporter_id, unit_id, bank_id, product_id, tax_id, net_invoice_amount, grand_total,
-            billing_address, billing_address1, billing_address2, shipping_address, shipping_address1, shipping_address2,
+            shipping_address, shipping_address1, shipping_address2,
             tot_discount, tot_sku_in_invoice, inv_no, inv_date, due_date, party_id, terms_id, description,
             taxable_amount, igst_percent, igst_amount, cgst_percent, cgst_amount, sgst_percent, sgst_amount,
             round_off, previous_outstanding, current_bill_amount, final_outstanding, jurisdiction,
-            fiscal_year_id, branch_id, created_by, created_on, delete_flag, rate_diff
+            fiscal_year_id, branch_id, created_by, created_on, delete_flag, rate_diff, total_quantity
         )
         VALUES (
             p_company_id, p_invoice_series, p_invoice_series_increment_number, p_inv_type, p_inv_sub_type, p_inv_category,
@@ -243,7 +244,7 @@ BEGIN
             p_tot_discount, p_tot_sku_in_invoice, p_inv_no, p_inv_date, p_due_date, p_party_id, p_terms_id, p_description,
             p_taxable_amount, p_igst_percent, p_igst_amount, p_cgst_percent, p_cgst_amount, p_sgst_percent, p_sgst_amount,
             p_round_off, p_previous_outstanding, p_current_bill_amount, p_final_outstanding, p_jurisdiction,
-            p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP, p_delete_flag, p_rate_diff
+            p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP, p_delete_flag, p_rate_diff, p_total_quantity
         )
         RETURNING *;
 
@@ -262,7 +263,7 @@ BEGIN
             tot_discount, tot_sku_in_invoice, inv_no, inv_date, due_date, party_id, terms_id, description,
             taxable_amount, igst_percent, igst_amount, cgst_percent, cgst_amount, sgst_percent, sgst_amount,
             round_off, previous_outstanding, current_bill_amount, final_outstanding, jurisdiction,
-            fiscal_year_id, branch_id, created_by, created_on, delete_flag, rate_diff
+            fiscal_year_id, branch_id, created_by, created_on, delete_flag, rate_diff, total_quantity
         )
         VALUES (
             p_company_id, p_invoice_series, p_invoice_series_increment_number, p_inv_type, p_inv_sub_type, p_inv_category,
@@ -272,7 +273,7 @@ BEGIN
             p_tot_discount, p_tot_sku_in_invoice, p_inv_no, p_inv_date, p_due_date, p_party_id, p_terms_id, p_description,
             p_taxable_amount, p_igst_percent, p_igst_amount, p_cgst_percent, p_cgst_amount, p_sgst_percent, p_sgst_amount,
             p_round_off, p_previous_outstanding, p_current_bill_amount, p_final_outstanding, p_jurisdiction,
-            p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP, FALSE, p_rate_diff
+            p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP, FALSE, p_rate_diff, p_total_quantity
         )
         RETURNING *;
 

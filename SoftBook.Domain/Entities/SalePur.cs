@@ -189,6 +189,10 @@ namespace SoftBook.Domain.Entities
         [JsonPropertyName("rateDiff")]
         public decimal? RateDiff { get; set; }
 
+        [Column("total_quantity")]
+        [JsonPropertyName("totalQuantity")]
+        public decimal TotalQuantity { get; set; } = 0;
+
 
 		[NotMapped]
 		[JsonPropertyName("todaysReceipt")]
