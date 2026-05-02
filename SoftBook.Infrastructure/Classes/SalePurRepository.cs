@@ -254,7 +254,8 @@ namespace SoftBook.Infrastructure.Classes
                 DeletedOn = SafeGetDateTime(reader, "deleted_on"),
                 RateDiff = reader.IsDBNull(reader.GetOrdinal("rate_diff")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate_diff")),
                 InvoiceTotal = reader.IsDBNull(reader.GetOrdinal("invoice_total")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("invoice_total")),
-                FinalInvoiceAmount = reader.IsDBNull(reader.GetOrdinal("final_invoice_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("final_invoice_amount"))
+                FinalInvoiceAmount = reader.IsDBNull(reader.GetOrdinal("final_invoice_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("final_invoice_amount")),
+                TotalQuantity = reader.IsDBNull(reader.GetOrdinal("total_quantity")) ? 0 : reader.GetDecimal(reader.GetOrdinal("total_quantity"))
             };
         }
 
@@ -365,6 +366,7 @@ namespace SoftBook.Infrastructure.Classes
             cmd.Parameters.Add("p_rate_diff", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.RateDiff ?? 0;
             cmd.Parameters.Add("p_invoice_total", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.InvoiceTotal ?? DBNull.Value;
             cmd.Parameters.Add("p_final_invoice_amount", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.FinalInvoiceAmount ?? DBNull.Value;
+            cmd.Parameters.Add("p_total_quantity", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.TotalQuantity;
         }
 
         private void AddSalePurTranParameters(NpgsqlCommand cmd, SalePurTran entity)

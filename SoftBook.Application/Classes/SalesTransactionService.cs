@@ -80,8 +80,11 @@ namespace SoftBook.Application.Services.Classes
             viewModel.Header.InvType = "Sales";
             viewModel.Header.InvCategory = "Sales Order";
 
-            // Calculate overall header RateDiff based on lines
+            // Double Validation: Recalculate overall header totals based on lines
             viewModel.Header.RateDiff = viewModel.Lines.Sum(l => l.RateDiff ?? 0);
+            viewModel.Header.TotalQuantity = viewModel.Lines.Sum(l => l.Quantity);
+            viewModel.Header.InvoiceTotal = viewModel.Lines.Sum(l => l.Amount);
+            viewModel.Header.FinalInvoiceAmount = viewModel.Header.GrandTotal;
 
             // Snapshot Cost Price for each line item from the Product Master
             foreach (var line in viewModel.Lines)
