@@ -46,5 +46,8 @@ namespace SoftBook.Application.Services.Interfaces
 
         //by Diya 27/04
         Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type);
+
+        // Ledger Summary Datewise - Hetak Modi 02-05-2026
+        Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate);
     }
 }

@@ -1066,6 +1066,51 @@ namespace SoftBook.Infrastructure.Classes
                 throw;
             }
         }
+
+        // Ledger Summary Datewise - Hetak Modi 02-05-2026
+        public async Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(
+            int accountCode,
+            DateTime fromDate,
+            DateTime toDate)
+        {
+            try
+            {
+                return await ExecuteReaderAsync(
+                    "SELECT * FROM fn_ledger_summary_datewise(@p_account_code, @p_from_date, @p_to_date)",
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("p_account_code", NpgsqlTypes.NpgsqlDbType.Integer) { Value = accountCode });
+                        cmd.Parameters.Add(new NpgsqlParameter("p_from_date",    NpgsqlTypes.NpgsqlDbType.Date)    { Value = fromDate });
+                        cmd.Parameters.Add(new NpgsqlParameter("p_to_date",      NpgsqlTypes.NpgsqlDbType.Date)    { Value = toDate });
+                    },
+                    reader =>
+                    {
+                        int dateOrd        = reader.GetOrdinal("res_date");
+                        int particularOrd  = reader.GetOrdinal("res_particular");
+                        int debitOrd       = reader.GetOrdinal("res_debit");
+                        int creditOrd      = reader.GetOrdinal("res_credit");
+                        int balanceOrd     = reader.GetOrdinal("res_balance");
+
+                        return new LedgerSummaryDatewiseDTO
+                        {
+                            ResDate       = reader.IsDBNull(dateOrd)       ? (DateTime?)null : reader.GetDateTime(dateOrd),
+                            ResParticular = reader.IsDBNull(particularOrd) ? null             : reader.GetString(particularOrd),
+                            ResDebit      = reader.IsDBNull(debitOrd)      ? 0                : reader.GetDecimal(debitOrd),
+                            ResCredit     = reader.IsDBNull(creditOrd)     ? 0                : reader.GetDecimal(creditOrd),
+                            ResBalance    = reader.IsDBNull(balanceOrd)    ? (decimal?)null   : reader.GetDecimal(balanceOrd),
+                        };
+                    },
+                    CommandType.Text
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetLedgerSummaryDatewiseAsync:");
+                Console.WriteLine($"AccountCode: {accountCode}, From: {fromDate:yyyy-MM-dd}, To: {toDate:yyyy-MM-dd}");
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
     }
 }
 
