@@ -54,6 +54,11 @@ namespace SoftBook.Application.Services.Classes
             viewModel.Header.InvType = "Purchase";
             viewModel.Header.InvCategory = "Purchase Order";
 
+            // Double Validation: Recalculate overall header totals based on lines
+            viewModel.Header.TotalQuantity = viewModel.Lines.Sum(l => l.Quantity);
+            viewModel.Header.InvoiceTotal = viewModel.Lines.Sum(l => l.Amount);
+            viewModel.Header.FinalInvoiceAmount = viewModel.Header.GrandTotal;
+
             if (!isNew)
             {
                 // ✅ Save old sp_unique_code for JV cleanup BEFORE re-insert changes it
