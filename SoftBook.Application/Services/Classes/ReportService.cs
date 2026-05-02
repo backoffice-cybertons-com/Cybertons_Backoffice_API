@@ -54,6 +54,7 @@ using SoftBook.Domain.DTOs;
 using SoftBook.Domain.Entities;
 using SoftBook.Domain.RepositoryInterfaces;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -124,7 +125,12 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetGSTR3bAsync(companyId, where, Type);
         }
 
-
+        //by diya 4/27
+        //GSTR-3b
+        public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type)
+        {
+            return await _reportRepository.GetGSTR3bAsync(companyId, where, Type);
+        }
 
         public async Task<byte[]> GenerateGstr1ExcelAsync(
     int companyId,
