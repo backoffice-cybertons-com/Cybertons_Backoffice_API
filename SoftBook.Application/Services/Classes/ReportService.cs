@@ -127,10 +127,10 @@ namespace SoftBook.Application.Services.Classes
 
         //by diya 4/27
         //GSTR-3b
-        public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type)
-        {
-            return await _reportRepository.GetGSTR3bAsync(companyId, where, Type);
-        }
+        //public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type)
+        //{
+        //    return await _reportRepository.GetGSTR3bAsync(companyId, where, Type);
+        //}
 
         public async Task<byte[]> GenerateGstr1ExcelAsync(
     int companyId,
@@ -681,7 +681,10 @@ namespace SoftBook.Application.Services.Classes
             return ms.ToArray();
         }
 
-        
+        public async Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetLedgerSummaryDatewiseAsync(accountCode, fromDate, toDate);
+        }
     }
 }
 

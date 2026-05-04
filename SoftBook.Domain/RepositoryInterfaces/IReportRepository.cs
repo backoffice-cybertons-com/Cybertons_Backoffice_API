@@ -54,7 +54,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
 
         // Ledger Summary Datewise - Hetak Modi 02-05-2026
         Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate);
-        Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string where, string Type);
+     //   Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string where, string Type);
         Task<List<GstrExcelRow>> GetGstr1ExcelExportAsync(
    int companyId,
    DateOnly fromDate,
