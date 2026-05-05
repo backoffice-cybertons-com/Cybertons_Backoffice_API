@@ -190,11 +190,11 @@ namespace SoftBook.API.Controllers
         }
 
         [HttpGet("ledger")]
-        public async Task<IActionResult> GetLedgerReport([FromQuery] int accountCode, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        public async Task<IActionResult> GetLedgerReport([FromQuery] int companyId, [FromQuery] int accountCode, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
         {
             try
             {
-                var report = await _reportService.GetLedgerReportAsync(accountCode, fromDate, toDate);
+                var report = await _reportService.GetLedgerReportAsync(companyId, accountCode, fromDate, toDate);
                 return Ok(report);
             }
             catch (Exception ex)
@@ -428,6 +428,7 @@ namespace SoftBook.API.Controllers
         // Ledger Summary Datewise - Hetak Modi 02-05-2026
         [HttpGet("ledger-summary-datewise")]
         public async Task<IActionResult> GetLedgerSummaryDatewise(
+            [FromQuery] int companyId,
             [FromQuery] int accountCode,
             [FromQuery] DateTime fromDate,
             [FromQuery] DateTime toDate)
@@ -437,7 +438,7 @@ namespace SoftBook.API.Controllers
                 if (accountCode == 0)
                     return BadRequest("accountCode is required.");
 
-                var result = await _reportService.GetLedgerSummaryDatewiseAsync(accountCode, fromDate, toDate);
+                var result = await _reportService.GetLedgerSummaryDatewiseAsync(companyId, accountCode, fromDate, toDate);
                 return Ok(result);
             }
             catch (Exception ex)
