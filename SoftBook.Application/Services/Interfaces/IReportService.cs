@@ -28,7 +28,7 @@ namespace SoftBook.Application.Services.Interfaces
 {
     public interface IReportService
     {
-        Task<LedgerReportDTO> GetLedgerReportAsync(int accountCode, DateTime fromDate, DateTime toDate);
+        Task<LedgerReportDTO> GetLedgerReportAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate);
 
         Task<List<InvWiseDTO>> GetSalePurInvWiseAsync(int companyId, string? invType, string? where);
 
@@ -49,7 +49,7 @@ namespace SoftBook.Application.Services.Interfaces
         Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type);
 
         // Ledger Summary Datewise - Hetak Modi 02-05-2026
-        Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate);
+        Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate);
 
 
         Task<byte[]> GenerateGstr1ExcelAsync( int companyId, DateOnly fromDate, DateOnly toDate);

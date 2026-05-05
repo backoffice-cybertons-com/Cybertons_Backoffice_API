@@ -423,11 +423,12 @@ namespace SoftBook.Infrastructure.Classes
         {
         }
 
-        public async Task<LedgerReportDTO> GetLedgerReportAsync(int accountCode, DateTime fromDate, DateTime toDate)
+        public async Task<LedgerReportDTO> GetLedgerReportAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate)
         {
             // Calling the V2 function which resolves the ambiguity issue
-            var entries = await ExecuteReaderAsync("SELECT * FROM fn_ledger_report_v2(@p_account_code, @p_from_date, @p_to_date)", cmd =>
+            var entries = await ExecuteReaderAsync("SELECT * FROM fn_ledger_report_v2(@p_company_id, @p_account_code, @p_from_date, @p_to_date)", cmd =>
             {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
                 cmd.Parameters.AddWithValue("p_account_code", accountCode);
 
                 // Explicitly send as DATE to match SQL function signature (INT, DATE, DATE)
@@ -1136,6 +1137,7 @@ namespace SoftBook.Infrastructure.Classes
 
         // Ledger Summary Datewise - Hetak Modi 02-05-2026
         public async Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(
+            int companyId,
             int accountCode,
             DateTime fromDate,
             DateTime toDate)
@@ -1143,9 +1145,10 @@ namespace SoftBook.Infrastructure.Classes
             try
             {
                 return await ExecuteReaderAsync(
-                    "SELECT * FROM fn_ledger_summary_datewise(@p_account_code, @p_from_date, @p_to_date)",
+                    "SELECT * FROM fn_ledger_summary_datewise(@p_company_id, @p_account_code, @p_from_date, @p_to_date)",
                     cmd =>
                     {
+                        cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId });
                         cmd.Parameters.Add(new NpgsqlParameter("p_account_code", NpgsqlTypes.NpgsqlDbType.Integer) { Value = accountCode });
                         cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
                         cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });

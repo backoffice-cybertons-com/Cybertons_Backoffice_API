@@ -30,7 +30,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
 {
     public interface IReportRepository
     {
-        Task<LedgerReportDTO> GetLedgerReportAsync(int accountCode, DateTime fromDate, DateTime toDate);
+        Task<LedgerReportDTO> GetLedgerReportAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate);
 
         Task<List<InvWiseDTO>> GetSalePurInvWiseAsync(int companyId, string? invType, string? where);
 
@@ -53,7 +53,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
         Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string? where, string Type);
 
         // Ledger Summary Datewise - Hetak Modi 02-05-2026
-        Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate);
+        Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate);
      //   Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(int companyId, string where, string Type);
         Task<List<GstrExcelRow>> GetGstr1ExcelExportAsync(
    int companyId,
