@@ -20,6 +20,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using SoftBook.Domain.DTOs;
 
@@ -51,9 +52,12 @@ namespace SoftBook.Application.Services.Interfaces
         Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate);
 
 
-        Task<byte[]> GenerateGstr1ExcelAsync(
- int companyId,
- DateOnly fromDate,
- DateOnly toDate);
+        Task<byte[]> GenerateGstr1ExcelAsync( int companyId, DateOnly fromDate, DateOnly toDate);
+
+        //by Diya 05/04
+        Task<IEnumerable<OutstandingComparisonDTO>> GetOutstandingComparisonAsync(int companyId, DateOnly Date ,string? where,string mode);
+
+
+
     }
 }

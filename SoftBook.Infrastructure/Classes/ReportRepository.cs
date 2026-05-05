@@ -1179,6 +1179,76 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+
+        //outstanding-comparison - Diya 04-05-2026
+        public async Task<IEnumerable<OutstandingComparisonDTO>> GetOutstandingComparisonAsync(
+     int companyId,
+     DateOnly date,
+     string? where,
+     string mode)
+        {
+            try
+            {
+                var safeWhere = string.IsNullOrWhiteSpace(where) ? "" : where.Trim();
+
+                return await ExecuteReaderAsync(
+                    "SELECT * FROM fn_outstanding_comparision(@p_comp_id, @p_date, @p_where,@P_mode)",
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("p_comp_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                        {
+                            Value = companyId
+                        });
+
+                        cmd.Parameters.Add(new NpgsqlParameter("p_date", NpgsqlTypes.NpgsqlDbType.Date)
+                        {
+                            Value = date.ToDateTime(TimeOnly.MinValue)
+                        });
+
+                        cmd.Parameters.Add(new NpgsqlParameter("p_where", NpgsqlTypes.NpgsqlDbType.Text)
+                        {
+                            Value = safeWhere
+
+                        });
+                        cmd.Parameters.Add(new NpgsqlParameter("p_mode", NpgsqlTypes.NpgsqlDbType.Text)
+                        {
+                            Value = mode
+
+                        });
+                    },
+                    reader =>
+                    {
+                        return new OutstandingComparisonDTO
+                        {
+                            PartyId = reader.GetInt32(reader.GetOrdinal("party_id")),
+                            CustomerName = reader.GetString(reader.GetOrdinal("customer_name")),
+
+                            YQty = reader.IsDBNull(reader.GetOrdinal("y_qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("y_qty")),
+                            YAmount = reader.IsDBNull(reader.GetOrdinal("y_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("y_amount")),
+                            YOs = reader.IsDBNull(reader.GetOrdinal("y_os")) ? 0 : reader.GetDecimal(reader.GetOrdinal("y_os")),
+
+                            TQty = reader.IsDBNull(reader.GetOrdinal("t_qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("t_qty")),
+                            TAmount = reader.IsDBNull(reader.GetOrdinal("t_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("t_amount")),
+                            Receipt = reader.IsDBNull(reader.GetOrdinal("receipt")) ? 0 : reader.GetDecimal(reader.GetOrdinal("receipt")),
+
+                            TOs = reader.IsDBNull(reader.GetOrdinal("t_os")) ? 0 : reader.GetDecimal(reader.GetOrdinal("t_os")),
+                            Diff = reader.IsDBNull(reader.GetOrdinal("diff")) ? 0 : reader.GetDecimal(reader.GetOrdinal("diff"))
+                        };
+                    },
+                    CommandType.Text
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetOutstandingComparisonAsync:");
+                Console.WriteLine($"CompanyId: {companyId}");
+                Console.WriteLine($"Date: {date}");
+                Console.WriteLine($"Where: {where}");
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
+
     }
 }
 

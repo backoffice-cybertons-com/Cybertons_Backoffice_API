@@ -405,7 +405,7 @@ namespace SoftBook.API.Controllers
         public async Task<IActionResult> GetGstr3b(
             [FromQuery] int companyId,
             [FromQuery] string? where,
-              [FromQuery] string Type)
+            [FromQuery] string Type)
         {
             try
             {
@@ -448,9 +448,9 @@ namespace SoftBook.API.Controllers
         }
         [HttpGet("gstr1-export")]
         public async Task<IActionResult> ExportGstr1Excel(
-    [FromQuery] int companyId,
-    [FromQuery] DateOnly fromDate,
-    [FromQuery] DateOnly toDate)
+            [FromQuery] int companyId,
+            [FromQuery] DateOnly fromDate,
+            [FromQuery] DateOnly toDate)
         {
             var file = await _reportService
                .GenerateGstr1ExcelAsync(
@@ -464,6 +464,38 @@ namespace SoftBook.API.Controllers
                "GSTR1.xlsx"
             );
         }
+
+
+
+
+
+        ///reports/outstanding-comparison
+        [HttpGet("outstanding-comparison")]
+        public async Task<IActionResult> outstandingcomparison(
+            [FromQuery] int companyId,
+            [FromQuery] DateOnly Date,
+            [FromQuery] string? where,
+            [FromQuery] string mode)
+        {
+            try
+            {
+                Console.WriteLine($"[ReportController] Fetching SalePurchaseRegisterDatewiseComparison. CompanyId: {companyId},  Where: {where}, Date:{Date}");
+
+                if (companyId == 0)
+                {
+                    Console.WriteLine("[ReportController] Warning: CompanyId is 0. Returning BadRequest.");
+                    return BadRequest("Company context not found.");
+                }
+
+                var report = await _reportService.GetOutstandingComparisonAsync(companyId, Date,where,mode);
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
 
     }
 }

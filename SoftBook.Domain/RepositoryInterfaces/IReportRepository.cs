@@ -60,5 +60,8 @@ namespace SoftBook.Domain.RepositoryInterfaces
    DateOnly fromDate,
    DateOnly toDate);
 
+        Task<IEnumerable<OutstandingComparisonDTO>> GetOutstandingComparisonAsync(int companyId, DateOnly Date,string? where,string mode);
+
+
     }
 }
