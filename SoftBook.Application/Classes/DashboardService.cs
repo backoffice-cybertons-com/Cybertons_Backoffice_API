@@ -78,6 +78,7 @@ namespace SoftBook.Application.Classes
             request.ExpenseVTypes ??= new[] { "Expense" };
             request.TopLimit ??= 10;
             request.Granularity ??= "daily";
+            request.InvStatusPartyType ??= "Customer";
 
             // If fromDate/toDate are still null, default to THIS_MONTH
             if (request.FromDate == null || request.ToDate == null)
