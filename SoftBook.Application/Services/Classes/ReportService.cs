@@ -70,9 +70,9 @@ namespace SoftBook.Application.Services.Classes
             _reportRepository = reportRepository;
         }
 
-        public async Task<LedgerReportDTO> GetLedgerReportAsync(int accountCode, DateTime fromDate, DateTime toDate)
+        public async Task<LedgerReportDTO> GetLedgerReportAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate)
         {
-            return await _reportRepository.GetLedgerReportAsync(accountCode, fromDate, toDate);
+            return await _reportRepository.GetLedgerReportAsync(companyId, accountCode, fromDate, toDate);
         }
 
         public async Task<IEnumerable<SalePurchaseRegisterItemwiseDTO>> GetSalePurchaseRegisterItemwiseAsync(int companyId, string? invType, string? where)
@@ -681,9 +681,9 @@ namespace SoftBook.Application.Services.Classes
             return ms.ToArray();
         }
 
-        public async Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int accountCode, DateTime fromDate, DateTime toDate)
+        public async Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate)
         {
-            return await _reportRepository.GetLedgerSummaryDatewiseAsync(accountCode, fromDate, toDate);
+            return await _reportRepository.GetLedgerSummaryDatewiseAsync(companyId, accountCode, fromDate, toDate);
         }
     }
 }
