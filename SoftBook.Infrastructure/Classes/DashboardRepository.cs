@@ -61,6 +61,11 @@ namespace SoftBook.Infrastructure.Classes
                 { 
                     Value = (object?)request.TopLimit ?? DBNull.Value 
                 });
+
+                cmd.Parameters.Add(new NpgsqlParameter("p_inv_status_party_type", NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = string.IsNullOrWhiteSpace(request.InvStatusPartyType) ? (object)DBNull.Value : request.InvStatusPartyType
+                });
             }) ?? "{}";
         }
     }
