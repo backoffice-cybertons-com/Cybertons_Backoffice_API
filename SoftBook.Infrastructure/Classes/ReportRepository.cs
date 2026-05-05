@@ -482,9 +482,9 @@ namespace SoftBook.Infrastructure.Classes
         }
 
         public async Task<IEnumerable<SalePurchaseRegisterItemwiseDTO>> GetSalePurchaseRegisterItemwiseAsync(
-    int companyId,
-    string? invType,
-    string? where)
+            int companyId,
+            string? invType,
+            string? where)
         {
             try
             {
@@ -693,9 +693,9 @@ namespace SoftBook.Infrastructure.Classes
 
 
         public async Task<IEnumerable<SalePurchaseRegisterMonthwiseDTO>> GetSalePurchaseRegisterMonthwiseAsync(
-   int companyId,
-   string? invType,
-   string? where)
+           int companyId,
+           string? invType,
+           string? where)
         {
             try
             {
@@ -972,101 +972,101 @@ namespace SoftBook.Infrastructure.Classes
         //by Diya
         //gst rpt
         public async Task<IEnumerable<GetGSTR3bDTO>> GetGSTR3bAsync(
-      int companyId,
-      string where,
-      string reportPart)
-        {
-            try
+          int companyId,
+          string where,
+          string reportPart)
             {
-                return await ExecuteReaderAsync(
-                    "SELECT * FROM fn_gst_report(@p_company_id,@p_where_clause,@p_report_part)",
+                try
+                {
+                    return await ExecuteReaderAsync(
+                        "SELECT * FROM fn_gst_report(@p_company_id,@p_where_clause,@p_report_part)",
 
-                    cmd =>
-                    {
-                        cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                        cmd =>
                         {
-                            Value = companyId
-                        });
+                            cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                            {
+                                Value = companyId
+                            });
 
-                        cmd.Parameters.Add(new NpgsqlParameter("p_where_clause", NpgsqlTypes.NpgsqlDbType.Text)
+                            cmd.Parameters.Add(new NpgsqlParameter("p_where_clause", NpgsqlTypes.NpgsqlDbType.Text)
+                            {
+                                Value = where ?? ""
+                            });
+
+                            cmd.Parameters.Add(new NpgsqlParameter("p_report_part", NpgsqlTypes.NpgsqlDbType.Text)
+                            {
+                                Value = reportPart ?? "3.1"
+                            });
+                        },
+
+                        reader =>
                         {
-                            Value = where ?? ""
-                        });
+                            return new GetGSTR3bDTO
+                            {
+                                Section =
+                                    reader.IsDBNull(reader.GetOrdinal("section"))
+                                    ? ""
+                                    : reader.GetString(
+                                        reader.GetOrdinal("section")),
 
-                        cmd.Parameters.Add(new NpgsqlParameter("p_report_part", NpgsqlTypes.NpgsqlDbType.Text)
-                        {
-                            Value = reportPart ?? "3.1"
-                        });
-                    },
+                                TaxableAmt =
+                                    reader.IsDBNull(reader.GetOrdinal("taxable_amt"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("taxable_amt")),
 
-                    reader =>
-                    {
-                        return new GetGSTR3bDTO
-                        {
-                            Section =
-                                reader.IsDBNull(reader.GetOrdinal("section"))
-                                ? ""
-                                : reader.GetString(
-                                    reader.GetOrdinal("section")),
+                                IgstAmt =
+                                    reader.IsDBNull(reader.GetOrdinal("igst_amt"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("igst_amt")),
 
-                            TaxableAmt =
-                                reader.IsDBNull(reader.GetOrdinal("taxable_amt"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("taxable_amt")),
+                                CgstAmt =
+                                    reader.IsDBNull(reader.GetOrdinal("cgst_amt"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("cgst_amt")),
 
-                            IgstAmt =
-                                reader.IsDBNull(reader.GetOrdinal("igst_amt"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("igst_amt")),
+                                SgstAmt =
+                                    reader.IsDBNull(reader.GetOrdinal("sgst_amt"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("sgst_amt")),
 
-                            CgstAmt =
-                                reader.IsDBNull(reader.GetOrdinal("cgst_amt"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("cgst_amt")),
+                                Cess =
+                                    reader.IsDBNull(reader.GetOrdinal("cess"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("cess")),
 
-                            SgstAmt =
-                                reader.IsDBNull(reader.GetOrdinal("sgst_amt"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("sgst_amt")),
+                                InterStateSupplies =
+                                    reader.IsDBNull(reader.GetOrdinal("inter_state_supplies"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("inter_state_supplies")),
 
-                            Cess =
-                                reader.IsDBNull(reader.GetOrdinal("cess"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("cess")),
+                                IntraStateSupplies =
+                                    reader.IsDBNull(reader.GetOrdinal("intra_state_supplies"))
+                                    ? 0
+                                    : reader.GetDecimal(
+                                        reader.GetOrdinal("intra_state_supplies"))
+                            };
+                        },
 
-                            InterStateSupplies =
-                                reader.IsDBNull(reader.GetOrdinal("inter_state_supplies"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("inter_state_supplies")),
+                        CommandType.Text
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error in GetGSTR3bAsync:");
+                    Console.WriteLine($"CompanyId: {companyId}");
+                    Console.WriteLine($"Where: {where}");
+                    Console.WriteLine($"ReportPart: {reportPart}");
+                    Console.WriteLine($"Error: {ex.Message}");
 
-                            IntraStateSupplies =
-                                reader.IsDBNull(reader.GetOrdinal("intra_state_supplies"))
-                                ? 0
-                                : reader.GetDecimal(
-                                    reader.GetOrdinal("intra_state_supplies"))
-                        };
-                    },
-
-                    CommandType.Text
-                );
+                    throw;
+                }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error in GetGSTR3bAsync:");
-                Console.WriteLine($"CompanyId: {companyId}");
-                Console.WriteLine($"Where: {where}");
-                Console.WriteLine($"ReportPart: {reportPart}");
-                Console.WriteLine($"Error: {ex.Message}");
-
-                throw;
-            }
-        }
 
 
         public async Task<List<GstrExcelRow>> GetGstr1ExcelExportAsync(
@@ -1185,10 +1185,10 @@ namespace SoftBook.Infrastructure.Classes
 
         //outstanding-comparison - Diya 04-05-2026
         public async Task<IEnumerable<OutstandingComparisonDTO>> GetOutstandingComparisonAsync(
-     int companyId,
-     DateOnly date,
-     string? where,
-     string mode)
+             int companyId,
+             DateOnly date,
+             string? where,
+             string mode)
         {
             try
             {
