@@ -13,6 +13,7 @@ namespace SoftBook.Domain.DTOs
         public string? ZoneType { get; set; } // ALL / SALES / PURCHASE
         public string[]? ExpensePartyTypes { get; set; }
         public string[]? ExpenseVTypes { get; set; } // default = ['Expense']
+        public string? InvStatusPartyType { get; set; } // Customer / Vendor / ALL
         public int? TopLimit { get; set; }
     }
 }
