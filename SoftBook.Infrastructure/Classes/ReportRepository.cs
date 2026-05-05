@@ -1223,8 +1223,15 @@ namespace SoftBook.Infrastructure.Classes
                     {
                         return new OutstandingComparisonDTO
                         {
-                            PartyId = reader.GetInt32(reader.GetOrdinal("party_id")),
-                            CustomerName = reader.GetString(reader.GetOrdinal("customer_name")),
+                            //PartyId = reader.GetInt32(reader.GetOrdinal("party_id")),
+                            //CustomerName = reader.GetString(reader.GetOrdinal("customer_name")),
+                            PartyId = reader.IsDBNull(reader.GetOrdinal("party_id"))
+                                    ? 0   // or null if nullable
+                                    : reader.GetInt32(reader.GetOrdinal("party_id")),
+
+                            CustomerName = reader.IsDBNull(reader.GetOrdinal("customer_name"))
+                                    ? ""
+                                    : reader.GetString(reader.GetOrdinal("customer_name")),
 
                             YQty = reader.IsDBNull(reader.GetOrdinal("y_qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("y_qty")),
                             YAmount = reader.IsDBNull(reader.GetOrdinal("y_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("y_amount")),

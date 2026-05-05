@@ -6,8 +6,8 @@ namespace SoftBook.Domain.DTOs
 {
     public class OutstandingComparisonDTO
     {
-        public int PartyId { get; set; }
-        public string CustomerName { get; set; }
+        public int? PartyId { get; set; }
+        public string? CustomerName { get; set; }
 
         public decimal YQty { get; set; }
         public decimal YAmount { get; set; }
