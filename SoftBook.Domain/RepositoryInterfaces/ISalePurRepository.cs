@@ -47,5 +47,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
 		Task<DbResult> InsertLineItemAsync(SalePurTran entity);
 		Task<DbResult> UpdateLineItemAsync(SalePurTran entity);
 		Task<DbResult> DeleteLineItemAsync(int spTranUniqueCode);
+		// [ADDED 2026-05-06] New method to soft-delete all lines for an invoice header
+		Task<DbResult> DeleteLineItemsByParentAsync(int spUniqueCode, int? userId = null);
 	}
 }

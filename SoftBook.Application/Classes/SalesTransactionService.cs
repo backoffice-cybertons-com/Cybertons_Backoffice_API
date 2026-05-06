@@ -101,33 +101,45 @@ namespace SoftBook.Application.Services.Classes
 
             if (!isNew)
             {
-                // ✅ Save old sp_unique_code for JV cleanup BEFORE re-insert changes it
-                var oldSpUniqueCode = viewModel.Header.SpUniqueCode;
+                // [MODIFIED 2026-05-06] Stable ID Implementation:
+                // We no longer soft-delete the header because changing sp_unique_code breaks payment links in tab_jv.
+                // We now:
+                // 1. Soft-delete ONLY the line items (tab_sal_pur_tran) and journal entries (tab_jv).
+                // 2. Perform a direct UPDATE on the header row in tab_sale_pur.
+                // 3. Re-insert fresh line items and journal entries linked to the SAME sp_unique_code.
 
-                // ✅ AUDIT TRAIL: UpdateAsync now soft-deletes the old header + its lines,
-                // then inserts the edited data as a NEW record, returning the fresh sp_unique_code.
+                var currentSpUniqueCode = viewModel.Header.SpUniqueCode;
+
+                /* OLD LOGIC (SOFT DELETE HEADER + INSERT NEW):
+                var oldSpUniqueCode = viewModel.Header.SpUniqueCode;
+                result = await _salePurRepository.UpdateAsync(viewModel.Header, userId);
+                if (!result.Success) return result;
+                if (result.Data is SalePur updatedHeader) {
+                    viewModel.Header.SpUniqueCode = updatedHeader.SpUniqueCode;
+                } else {
+                    return DbResult.Failure("Failed to retrieve the new record ID after re-insert on edit.");
+                }
+                */
+
+                // 1. Soft-delete OLD line items first (tab_sal_pur_tran)
+                // This ensures we can insert new lines without having duplicates under the same header ID.
+                var deleteLinesResult = await _salePurRepository.DeleteLineItemsByParentAsync(currentSpUniqueCode, userId);
+                if (!deleteLinesResult.Success) return deleteLinesResult;
+
+                // 2. Perform Direct Update on the Header (tab_sale_pur)
+                // This preserves sp_unique_code and updates modified_on/modified_by.
                 result = await _salePurRepository.UpdateAsync(viewModel.Header, userId);
                 if (!result.Success) return result;
 
-                if (result.Data is SalePur updatedHeader)
-                {
-                    // Use the NEW sp_unique_code for all line insertions
-                    viewModel.Header.SpUniqueCode = updatedHeader.SpUniqueCode;
-                }
-                else
-                {
-                    return DbResult.Failure("Failed to retrieve the new record ID after re-insert on edit.");
-                }
+                // 3. Delete OLD journal entries linked to this ID (tab_jv)
+                // We wipe the old accounting lines and GenerateJournalFromSaleAsync will create fresh ones.
+                await _journalService.DeleteJournalByGCodeAsync(currentSpUniqueCode.ToString());
 
-                // ✅ Delete OLD journal entries by the old GCode before generating new ones
-                await _journalService.DeleteJournalByGCodeAsync(oldSpUniqueCode.ToString());
-
-                // Insert all lines fresh against the new sp_unique_code
-                // (Old lines were already soft-deleted by the stored proc)
+                // 4. Insert New Line Items using the same ID
                 foreach (var line in viewModel.Lines)
                 {
-                    line.SpTranUniqueCode = 0; // force INSERT — old PKs are now invalidated
-                    line.SpUniqueCode = viewModel.Header.SpUniqueCode;
+                    line.SpTranUniqueCode = 0; // force INSERT — old line PKs are invalidated
+                    line.SpUniqueCode = currentSpUniqueCode; // Use the SAME stable ID
                     line.CompanyId = viewModel.Header.CompanyId;
                     line.FiscalYearId = fiscalYearId;
                     line.BranchId = branchId;

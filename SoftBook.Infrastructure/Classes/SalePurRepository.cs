@@ -191,6 +191,25 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+        // [ADDED 2026-05-06] Implementation for soft-deleting all lines of an invoice
+        public async Task<DbResult> DeleteLineItemsByParentAsync(int spUniqueCode, int? userId = null)
+        {
+            try
+            {
+                await ExecuteNonQueryAsync("public.fn_sal_pur_tran", cmd =>
+                {
+                    cmd.Parameters.AddWithValue("p_action", "DELETE_BY_PARENT");
+                    cmd.Parameters.AddWithValue("p_sp_unique_code", spUniqueCode);
+                    cmd.Parameters.AddWithValue("p_deleted_by", userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
+                });
+                return DbResult.Ok();
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex);
+            }
+        }
+
         private SalePur MapSalePur(NpgsqlDataReader reader)
         {
             return new SalePur
@@ -234,7 +253,7 @@ namespace SoftBook.Infrastructure.Classes
                 TaxableAmount = reader.IsDBNull(reader.GetOrdinal("taxable_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("taxable_amount")),
                 IgstPercent = reader.IsDBNull(reader.GetOrdinal("igst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("igst_percent")),
                 IgstAmount = reader.IsDBNull(reader.GetOrdinal("igst_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("igst_amount")),
-                CgstPercent = reader.IsDBNull(reader.GetOrdinal("cgst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("cgst_percent")),
+                CgstPercent = reader.IsDBNull(reader.GetOrdinal("cgst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("cgst_amount")),
                 CgstAmount = reader.IsDBNull(reader.GetOrdinal("cgst_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("cgst_amount")),
                 SgstPercent = reader.IsDBNull(reader.GetOrdinal("sgst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("sgst_percent")),
                 SgstAmount = reader.IsDBNull(reader.GetOrdinal("sgst_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("sgst_amount")),
@@ -364,6 +383,7 @@ namespace SoftBook.Infrastructure.Classes
             cmd.Parameters.Add("p_deleted_by", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.DeletedBy ?? DBNull.Value;
             cmd.Parameters.Add("p_delete_flag", NpgsqlTypes.NpgsqlDbType.Boolean).Value = entity.DeleteFlag ?? false;
             cmd.Parameters.Add("p_rate_diff", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.RateDiff ?? 0;
+            // [MODIFIED 2026-05-06] Added missing parameters to match latest DB function fn_sale_pur
             cmd.Parameters.Add("p_invoice_total", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.InvoiceTotal ?? DBNull.Value;
             cmd.Parameters.Add("p_final_invoice_amount", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.FinalInvoiceAmount ?? DBNull.Value;
             cmd.Parameters.Add("p_total_quantity", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.TotalQuantity;

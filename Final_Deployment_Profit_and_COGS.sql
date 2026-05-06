@@ -140,85 +140,103 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 3. SALES HEADER FUNCTION
-CREATE OR REPLACE FUNCTION fn_sale_pur(
-    p_action VARCHAR,
-    p_sp_unique_code INT DEFAULT NULL,
-    p_company_id INT DEFAULT NULL,
-    p_invoice_series VARCHAR DEFAULT NULL,
-    p_invoice_series_increment_number INT DEFAULT NULL,
-    p_inv_type VARCHAR DEFAULT NULL,
-    p_inv_sub_type VARCHAR DEFAULT NULL,
-    p_inv_category VARCHAR DEFAULT NULL,
-    p_sales_order_no VARCHAR DEFAULT NULL,
-    p_sales_order_date DATE DEFAULT NULL,
-    p_po_order_no VARCHAR DEFAULT NULL,
-    p_po_order_date DATE DEFAULT NULL,
-    p_bill_id INT DEFAULT NULL,
-    p_delivery_no INT DEFAULT NULL,
-    p_delivery_date DATE DEFAULT NULL,
-    p_vehicle_no VARCHAR DEFAULT NULL,
-    p_transporter_id INT DEFAULT NULL,
-    p_unit_id INT DEFAULT NULL,
-    p_bank_id INT DEFAULT NULL,
-    p_product_id INT DEFAULT NULL,
-    p_tax_id INT DEFAULT NULL,
-    p_net_invoice_amount NUMERIC DEFAULT NULL,
-    p_grand_total NUMERIC DEFAULT NULL,
-    p_billing_address TEXT DEFAULT NULL,
-    p_billing_address1 VARCHAR DEFAULT NULL,
-    p_billing_address2 VARCHAR DEFAULT NULL,
-    p_shipping_address TEXT DEFAULT NULL,
-    p_shipping_address1 VARCHAR DEFAULT NULL,
-    p_shipping_address2 VARCHAR DEFAULT NULL,
-    p_tot_discount NUMERIC DEFAULT 0,
-    p_tot_sku_in_invoice INT DEFAULT 0,
-    p_inv_no VARCHAR DEFAULT NULL,
-    p_inv_date DATE DEFAULT NULL,
-    p_due_date DATE DEFAULT NULL,
-    p_party_id INT DEFAULT NULL,
-    p_terms_id INT DEFAULT NULL,
-    p_description TEXT DEFAULT NULL,
-    p_taxable_amount NUMERIC DEFAULT NULL,
-    p_igst_percent NUMERIC DEFAULT NULL,
-    p_igst_amount NUMERIC DEFAULT NULL,
-    p_cgst_percent NUMERIC DEFAULT NULL,
-    p_cgst_amount NUMERIC DEFAULT NULL,
-    p_sgst_percent NUMERIC DEFAULT NULL,
-    p_sgst_amount NUMERIC DEFAULT NULL,
-    p_round_off NUMERIC DEFAULT NULL,
-    p_previous_outstanding NUMERIC DEFAULT NULL,
-    p_current_bill_amount NUMERIC DEFAULT NULL,
-    p_final_outstanding NUMERIC DEFAULT NULL,
-    p_jurisdiction VARCHAR DEFAULT NULL,
-    p_fiscal_year_id INT DEFAULT NULL,
-    p_branch_id INT DEFAULT NULL,
-    p_created_by INT DEFAULT NULL,
-    p_modified_by INT DEFAULT NULL,
-    p_deleted_by INT DEFAULT NULL,
-    p_delete_flag BOOLEAN DEFAULT FALSE,
-    p_rate_diff NUMERIC DEFAULT 0,
-    p_user_id INT DEFAULT NULL
-)
-RETURNS SETOF tab_sale_pur AS $$
+CREATE OR REPLACE FUNCTION public.fn_sale_pur(
+	p_action character varying,
+	p_sp_unique_code integer DEFAULT NULL::integer,
+	p_company_id integer DEFAULT NULL::integer,
+	p_invoice_series character varying DEFAULT NULL::character varying,
+	p_invoice_series_increment_number integer DEFAULT NULL::integer,
+	p_inv_type character varying DEFAULT NULL::character varying,
+	p_inv_sub_type character varying DEFAULT NULL::character varying,
+	p_inv_category character varying DEFAULT NULL::character varying,
+	p_sales_order_no character varying DEFAULT NULL::character varying,
+	p_sales_order_date date DEFAULT NULL::date,
+	p_po_order_no character varying DEFAULT NULL::character varying,
+	p_po_order_date date DEFAULT NULL::date,
+	p_bill_id integer DEFAULT NULL::integer,
+	p_delivery_no integer DEFAULT NULL::integer,
+	p_delivery_date date DEFAULT NULL::date,
+	p_vehicle_no character varying DEFAULT NULL::character varying,
+	p_transporter_id integer DEFAULT NULL::integer,
+	p_unit_id integer DEFAULT NULL::integer,
+	p_bank_id integer DEFAULT NULL::integer,
+	p_product_id integer DEFAULT NULL::integer,
+	p_tax_id integer DEFAULT NULL::integer,
+	p_net_invoice_amount numeric DEFAULT NULL::numeric,
+	p_grand_total numeric DEFAULT NULL::numeric,
+	p_billing_address text DEFAULT NULL::text,
+	p_billing_address1 character varying DEFAULT NULL::character varying,
+	p_billing_address2 character varying DEFAULT NULL::character varying,
+	p_shipping_address text DEFAULT NULL::text,
+	p_shipping_address1 character varying DEFAULT NULL::character varying,
+	p_shipping_address2 character varying DEFAULT NULL::character varying,
+	p_tot_discount numeric DEFAULT 0,
+	p_tot_sku_in_invoice integer DEFAULT 0,
+	p_inv_no character varying DEFAULT NULL::character varying,
+	p_inv_date date DEFAULT NULL::date,
+	p_due_date date DEFAULT NULL::date,
+	p_party_id integer DEFAULT NULL::integer,
+	p_terms_id integer DEFAULT NULL::integer,
+	p_description text DEFAULT NULL::text,
+	p_taxable_amount numeric DEFAULT NULL::numeric,
+	p_igst_percent numeric DEFAULT NULL::numeric,
+	p_igst_amount numeric DEFAULT NULL::numeric,
+	p_cgst_percent numeric DEFAULT NULL::numeric,
+	p_cgst_amount numeric DEFAULT NULL::numeric,
+	p_sgst_percent numeric DEFAULT NULL::numeric,
+	p_sgst_amount numeric DEFAULT NULL::numeric,
+	p_round_off numeric DEFAULT NULL::numeric,
+	p_previous_outstanding numeric DEFAULT NULL::numeric,
+	p_current_bill_amount numeric DEFAULT NULL::numeric,
+	p_final_outstanding numeric DEFAULT NULL::numeric,
+	p_jurisdiction character varying DEFAULT NULL::character varying,
+	p_fiscal_year_id integer DEFAULT NULL::integer,
+	p_branch_id integer DEFAULT NULL::integer,
+	p_created_by integer DEFAULT NULL::integer,
+	p_modified_by integer DEFAULT NULL::integer,
+	p_deleted_by integer DEFAULT NULL::integer,
+	p_delete_flag boolean DEFAULT false,
+	p_rate_diff numeric DEFAULT 0,
+	p_invoice_total numeric DEFAULT 0,
+	p_final_invoice_amount numeric DEFAULT 0,
+	p_total_quantity numeric DEFAULT 0,
+	p_user_id integer DEFAULT NULL::integer)
+    RETURNS SETOF tab_sale_pur 
+    LANGUAGE 'plpgsql'
+AS $BODY$
 DECLARE
+    v_audit_user INT;
     v_tab_id INT;
+    v_perm_action VARCHAR(20);
 BEGIN
-    -- Map Tab IDs
+
+    v_audit_user := COALESCE(p_user_id, p_modified_by, p_deleted_by, p_created_by);
+
+    -- 🔐 PERMISSION GUARD
     v_tab_id := CASE 
-        WHEN p_inv_type = 'Sales' THEN 14 
-        WHEN p_inv_type = 'Purchase' THEN 15 
-        WHEN p_inv_type = 'Expense' THEN 16 
-        ELSE 14 -- Default to Sales
+        WHEN UPPER(TRIM(COALESCE(p_inv_type, ''))) = 'PURCHASE' THEN 26 
+        ELSE 16 
     END;
 
-    -- Validate Permission
-    IF p_user_id IS NOT NULL AND p_action IN ('INSERT', 'UPDATE', 'DELETE') THEN
-        PERFORM public.fn_validate_permission(p_user_id, p_company_id, v_tab_id, p_action);
+    v_perm_action := CASE 
+        WHEN p_action = 'INSERT' THEN 'ADD' 
+        WHEN p_action = 'UPDATE' THEN 'EDIT' 
+        ELSE p_action 
+    END;
+
+    IF v_audit_user IS NOT NULL AND v_perm_action IN ('ADD','EDIT','DELETE') THEN
+        IF NOT public.fn_validate_permission(v_audit_user, p_company_id, v_tab_id, v_perm_action) THEN
+            RAISE EXCEPTION 'Access Denied: Module % (Tab %).', v_perm_action, v_tab_id;
+        END IF;
     END IF;
 
+    -- =====================
+    -- INSERT
+    -- =====================
     IF p_action = 'INSERT' THEN
+
         RETURN QUERY
-        INSERT INTO tab_sale_pur (
+        INSERT INTO public.tab_sale_pur (
             company_id, invoice_series, invoice_series_increment_number, inv_type, inv_sub_type, inv_category,
             sales_order_no, sales_order_date, po_order_no, po_order_date, bill_id, delivery_no, delivery_date,
             vehicle_no, transporter_id, unit_id, bank_id, product_id, tax_id, net_invoice_amount, grand_total,
@@ -226,7 +244,8 @@ BEGIN
             tot_discount, tot_sku_in_invoice, inv_no, inv_date, due_date, party_id, terms_id, description,
             taxable_amount, igst_percent, igst_amount, cgst_percent, cgst_amount, sgst_percent, sgst_amount,
             round_off, previous_outstanding, current_bill_amount, final_outstanding, jurisdiction,
-            fiscal_year_id, branch_id, created_by, created_on, delete_flag, rate_diff
+            fiscal_year_id, branch_id, created_by, created_on, delete_flag,
+            rate_diff, invoice_total, final_invoice_amount, total_quantity
         )
         VALUES (
             p_company_id, p_invoice_series, p_invoice_series_increment_number, p_inv_type, p_inv_sub_type, p_inv_category,
@@ -236,49 +255,123 @@ BEGIN
             p_tot_discount, p_tot_sku_in_invoice, p_inv_no, p_inv_date, p_due_date, p_party_id, p_terms_id, p_description,
             p_taxable_amount, p_igst_percent, p_igst_amount, p_cgst_percent, p_cgst_amount, p_sgst_percent, p_sgst_amount,
             p_round_off, p_previous_outstanding, p_current_bill_amount, p_final_outstanding, p_jurisdiction,
-            p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP, p_delete_flag, p_rate_diff
+            p_fiscal_year_id, p_branch_id, v_audit_user, CURRENT_TIMESTAMP, p_delete_flag,
+            p_rate_diff, p_invoice_total, p_final_invoice_amount, p_total_quantity
         )
         RETURNING *;
 
+    -- =====================
+    -- UPDATE (STABLE ID MODE)
+    -- =====================
     ELSIF p_action = 'UPDATE' THEN
-        -- Check if delete flag is being set (effective delete)
-        IF p_delete_flag = TRUE THEN
-             PERFORM public.fn_validate_permission(p_user_id, p_company_id, v_tab_id, 'DELETE');
-        END IF;
 
-        UPDATE tab_sale_pur SET delete_flag = TRUE, deleted_by = p_modified_by, deleted_on = CURRENT_TIMESTAMP 
+        -- [MODIFIED 2026-05-06] Stable ID Logic:
+        -- Previously: This block soft-deleted the old record and inserted a new one (Audit Mode).
+        -- Now: We perform a direct UPDATE on the existing row to keep sp_unique_code stable for payment tracking.
+
+        /* OLD LOGIC (SOFT DELETE + INSERT NEW):
+        UPDATE public.tab_sale_pur
+        SET delete_flag = TRUE,
+            deleted_by = v_audit_user,
+            deleted_on = CURRENT_TIMESTAMP
         WHERE sp_unique_code = p_sp_unique_code;
 
         RETURN QUERY
-        INSERT INTO tab_sale_pur (
-            company_id, invoice_series, invoice_series_increment_number, inv_type, inv_sub_type, inv_category,
-            sales_order_no, sales_order_date, po_order_no, po_order_date, bill_id, delivery_no, delivery_date,
-            vehicle_no, transporter_id, unit_id, bank_id, product_id, tax_id, net_invoice_amount, grand_total,
-            billing_address, billing_address1, billing_address2, shipping_address, shipping_address1, shipping_address2,
-            tot_discount, tot_sku_in_invoice, inv_no, inv_date, due_date, party_id, terms_id, description,
-            taxable_amount, igst_percent, igst_amount, cgst_percent, cgst_amount, sgst_percent, sgst_amount,
-            round_off, previous_outstanding, current_bill_amount, final_outstanding, jurisdiction,
-            fiscal_year_id, branch_id, created_by, created_on, delete_flag, rate_diff
-        )
-        VALUES (
-            p_company_id, p_invoice_series, p_invoice_series_increment_number, p_inv_type, p_inv_sub_type, p_inv_category,
-            p_sales_order_no, p_sales_order_date, p_po_order_no, p_po_order_date, p_bill_id, p_delivery_no, p_delivery_date,
-            p_vehicle_no, p_transporter_id, p_unit_id, p_bank_id, p_product_id, p_tax_id, p_net_invoice_amount, p_grand_total,
-            p_billing_address, p_billing_address1, p_billing_address2, p_shipping_address, p_shipping_address1, p_shipping_address2,
-            p_tot_discount, p_tot_sku_in_invoice, p_inv_no, p_inv_date, p_due_date, p_party_id, p_terms_id, p_description,
-            p_taxable_amount, p_igst_percent, p_igst_amount, p_cgst_percent, p_cgst_amount, p_sgst_percent, p_sgst_amount,
-            p_round_off, p_previous_outstanding, p_current_bill_amount, p_final_outstanding, p_jurisdiction,
-            p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP, FALSE, p_rate_diff
-        )
+        INSERT INTO public.tab_sale_pur (...) VALUES (...)
+        */
+
+        -- NEW LOGIC: Direct update to preserve the Primary Key (sp_unique_code)
+        UPDATE public.tab_sale_pur SET
+            invoice_series = p_invoice_series,
+            invoice_series_increment_number = p_invoice_series_increment_number,
+            inv_sub_type = p_inv_sub_type,
+            inv_category = p_inv_category,
+            sales_order_no = p_sales_order_no,
+            sales_order_date = p_sales_order_date,
+            po_order_no = p_po_order_no,
+            po_order_date = p_po_order_date,
+            bill_id = p_bill_id,
+            delivery_no = p_delivery_no,
+            delivery_date = p_delivery_date,
+            vehicle_no = p_vehicle_no,
+            transporter_id = p_transporter_id,
+            unit_id = p_unit_id,
+            bank_id = p_bank_id,
+            product_id = p_product_id,
+            tax_id = p_tax_id,
+            net_invoice_amount = p_net_invoice_amount,
+            grand_total = p_grand_total,
+            billing_address = p_billing_address,
+            billing_address1 = p_billing_address1,
+            billing_address2 = p_billing_address2,
+            shipping_address = p_shipping_address,
+            shipping_address1 = p_shipping_address1,
+            shipping_address2 = p_shipping_address2,
+            tot_discount = p_tot_discount,
+            tot_sku_in_invoice = p_tot_sku_in_invoice,
+            inv_no = p_inv_no,
+            inv_date = p_inv_date,
+            due_date = p_due_date,
+            party_id = p_party_id,
+            terms_id = p_terms_id,
+            description = p_description,
+            taxable_amount = p_taxable_amount,
+            igst_percent = p_igst_percent,
+            igst_amount = p_igst_amount,
+            cgst_percent = p_cgst_percent,
+            cgst_amount = p_cgst_amount,
+            sgst_percent = p_sgst_percent,
+            sgst_amount = p_sgst_amount,
+            round_off = p_round_off,
+            previous_outstanding = p_previous_outstanding,
+            current_bill_amount = p_current_bill_amount,
+            final_outstanding = p_final_outstanding,
+            jurisdiction = p_jurisdiction,
+            fiscal_year_id = p_fiscal_year_id,
+            branch_id = p_branch_id,
+            modified_by = v_audit_user,             -- [FIX] Correctly update audit columns
+            modified_on = CURRENT_TIMESTAMP,      -- [FIX] Correctly update audit columns
+            delete_flag = p_delete_flag,
+            rate_diff = p_rate_diff,
+            invoice_total = p_invoice_total,
+            final_invoice_amount = p_final_invoice_amount,
+            total_quantity = p_total_quantity
+        WHERE sp_unique_code = p_sp_unique_code AND company_id = p_company_id;
+
+        RETURN QUERY SELECT * FROM public.tab_sale_pur WHERE sp_unique_code = p_sp_unique_code;
+
+    -- =====================
+    -- DELETE
+    -- =====================
+    ELSIF p_action = 'DELETE' THEN
+        RETURN QUERY
+        UPDATE public.tab_sale_pur
+        SET delete_flag = TRUE,
+            deleted_by = v_audit_user,
+            deleted_on = CURRENT_TIMESTAMP
+        WHERE sp_unique_code = p_sp_unique_code
+          AND company_id = p_company_id
         RETURNING *;
 
+    -- =====================
+    -- GET
+    -- =====================
     ELSIF p_action = 'GETALL' THEN
-        RETURN QUERY SELECT * FROM tab_sale_pur WHERE company_id = p_company_id AND delete_flag = FALSE;
+        RETURN QUERY
+        SELECT * FROM public.tab_sale_pur
+        WHERE company_id = p_company_id
+          AND delete_flag = FALSE
+        ORDER BY sp_unique_code DESC;
+
     ELSIF p_action = 'GETBYID' THEN
-        RETURN QUERY SELECT * FROM tab_sale_pur WHERE sp_unique_code = p_sp_unique_code AND company_id = p_company_id;
+        RETURN QUERY
+        SELECT * FROM public.tab_sale_pur
+        WHERE sp_unique_code = p_sp_unique_code
+          AND company_id = p_company_id;
     END IF;
+
 END;
-$$ LANGUAGE plpgsql;
+$BODY$;
 
 -- 4. SALES TRANSACTION LINES (with COGS)
 -- DROP is required to change parameter name from p_cost_price to p_cogs
@@ -288,74 +381,112 @@ DROP FUNCTION IF EXISTS fn_sal_pur_tran(
     NUMERIC, NUMERIC, NUMERIC, VARCHAR, VARCHAR, INT, INT, INT, INT, INT, BOOLEAN, NUMERIC, NUMERIC
 );
 
-CREATE OR REPLACE FUNCTION fn_sal_pur_tran(
-    p_action VARCHAR,
-    p_sp_tran_unique_code INT DEFAULT NULL,
-    p_sp_unique_code INT DEFAULT NULL,
-    p_company_id INT DEFAULT NULL,
-    p_product_id INT DEFAULT NULL,
-    p_product_details TEXT DEFAULT NULL,
-    p_batch_date DATE DEFAULT NULL,
-    p_batch_no VARCHAR DEFAULT NULL,
-    p_mrp NUMERIC DEFAULT NULL,
-    p_sub_unit INT DEFAULT NULL,
-    p_sub_unit_quantity NUMERIC DEFAULT NULL,
-    p_unit INT DEFAULT NULL,
-    p_quantity NUMERIC DEFAULT NULL,
-    p_rate NUMERIC DEFAULT NULL,
-    p_discount_per NUMERIC DEFAULT 0,
-    p_amount NUMERIC DEFAULT NULL,
-    p_igst_percent NUMERIC DEFAULT NULL,
-    p_igst_amount NUMERIC DEFAULT NULL,
-    p_cgst_percent NUMERIC DEFAULT NULL,
-    p_cgst_amount NUMERIC DEFAULT NULL,
-    p_sgst_percent NUMERIC DEFAULT NULL,
-    p_sgst_amount NUMERIC DEFAULT NULL,
-    p_total_amount NUMERIC DEFAULT NULL,
-    p_crt NUMERIC DEFAULT NULL,
-    p_packing VARCHAR DEFAULT NULL,
-    p_hsn_code VARCHAR DEFAULT NULL,
-    p_fiscal_year_id INT DEFAULT NULL,
-    p_branch_id INT DEFAULT NULL,
-    p_created_by INT DEFAULT NULL,
-    p_modified_by INT DEFAULT NULL,
-    p_deleted_by INT DEFAULT NULL,
-    p_delete_flag BOOLEAN DEFAULT FALSE,
-    p_rate_diff NUMERIC DEFAULT 0,
-    p_cogs NUMERIC DEFAULT 0
-)
-RETURNS SETOF tab_sal_pur_tran AS $$
+CREATE OR REPLACE FUNCTION public.fn_sal_pur_tran(
+	p_action character varying,
+	p_sp_tran_unique_code integer DEFAULT NULL::integer,
+	p_sp_unique_code integer DEFAULT NULL::integer,
+	p_company_id integer DEFAULT NULL::integer,
+	p_product_id integer DEFAULT NULL::integer,
+	p_product_details text DEFAULT NULL::text,
+	p_batch_date date DEFAULT NULL::date,
+	p_batch_no character varying DEFAULT NULL::character varying,
+	p_mrp numeric DEFAULT NULL::numeric,
+	p_sub_unit integer DEFAULT NULL::integer,
+	p_sub_unit_quantity numeric DEFAULT NULL::numeric,
+	p_unit integer DEFAULT NULL::integer,
+	p_quantity numeric DEFAULT NULL::numeric,
+	p_rate numeric DEFAULT NULL::numeric,
+	p_discount_per numeric DEFAULT 0,
+	p_amount numeric DEFAULT NULL::numeric,
+	p_igst_percent numeric DEFAULT NULL::numeric,
+	p_igst_amount numeric DEFAULT NULL::numeric,
+	p_cgst_percent numeric DEFAULT NULL::numeric,
+	p_cgst_amount numeric DEFAULT NULL::numeric,
+	p_sgst_percent numeric DEFAULT NULL::numeric,
+	p_sgst_amount numeric DEFAULT NULL::numeric,
+	p_total_amount numeric DEFAULT NULL::numeric,
+	p_crt numeric DEFAULT NULL::numeric,
+	p_packing character varying DEFAULT NULL::character varying,
+	p_hsn_code character varying DEFAULT NULL::character varying,
+	p_fiscal_year_id integer DEFAULT NULL::integer,
+	p_branch_id integer DEFAULT NULL::integer,
+	p_created_by integer DEFAULT NULL::integer,
+	p_modified_by integer DEFAULT NULL::integer,
+	p_deleted_by integer DEFAULT NULL::integer,
+	p_delete_flag boolean DEFAULT false,
+	p_rate_diff numeric DEFAULT 0,
+	p_cogs numeric DEFAULT 0)
+    RETURNS SETOF tab_sal_pur_tran 
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    v_audit_user INT;
 BEGIN
+    v_audit_user := COALESCE(p_modified_by, p_deleted_by, p_created_by);
+
     IF p_action = 'INSERT' THEN
         RETURN QUERY
-        INSERT INTO tab_sal_pur_tran (
+        INSERT INTO public.tab_sal_pur_tran (
             sp_unique_code, company_id, product_id, product_details, batch_date, batch_no, mrp, 
             sub_unit, sub_unit_quantity, unit, quantity, rate, discount_per, amount,
             igst_percent, igst_amount, cgst_percent, cgst_amount, sgst_percent, sgst_amount,
             total_amount, crt, packing, hsn_code, fiscal_year_id, branch_id, created_by, created_on, 
-            delete_flag, rate_diff, cogs
+            modified_by, modified_on, delete_flag, rate_diff, cogs
         )
         VALUES (
             p_sp_unique_code, p_company_id, p_product_id, p_product_details, p_batch_date, p_batch_no, p_mrp,
             p_sub_unit, p_sub_unit_quantity, p_unit, p_quantity, p_rate, p_discount_per, p_amount,
             p_igst_percent, p_igst_amount, p_cgst_percent, p_cgst_amount, p_sgst_percent, p_sgst_amount,
-            p_total_amount, p_crt, p_packing, p_hsn_code, p_fiscal_year_id, p_branch_id, p_created_by, CURRENT_TIMESTAMP,
-            p_delete_flag, p_rate_diff, p_cogs
+            p_total_amount, p_crt, p_packing, p_hsn_code, p_fiscal_year_id, p_branch_id, COALESCE(p_created_by, v_audit_user), CURRENT_TIMESTAMP,
+            v_audit_user, CURRENT_TIMESTAMP, p_delete_flag, p_rate_diff, p_cogs
         )
         RETURNING *;
 
     ELSIF p_action = 'UPDATE' THEN
-        UPDATE tab_sal_pur_tran SET
-            product_id = p_product_id, product_details = p_product_details, batch_date = p_batch_date,
-            batch_no = p_batch_no, mrp = p_mrp, sub_unit = p_sub_unit, sub_unit_quantity = p_sub_unit_quantity,
-            unit = p_unit, quantity = p_quantity, rate = p_rate, discount_per = p_discount_per,
-            amount = p_amount, total_amount = p_total_amount, rate_diff = p_rate_diff, cogs = p_cogs
+        UPDATE public.tab_sal_pur_tran SET
+            product_id = p_product_id, 
+            product_details = p_product_details, 
+            batch_date = p_batch_date,
+            batch_no = p_batch_no, 
+            mrp = p_mrp, 
+            sub_unit = p_sub_unit, 
+            sub_unit_quantity = p_sub_unit_quantity,
+            unit = p_unit, 
+            quantity = p_quantity, 
+            rate = p_rate, 
+            discount_per = p_discount_per,
+            amount = p_amount, 
+            total_amount = p_total_amount, 
+            rate_diff = p_rate_diff, 
+            cogs = p_cogs,
+            modified_by = v_audit_user, 
+            modified_on = CURRENT_TIMESTAMP
         WHERE sp_tran_unique_code = p_sp_tran_unique_code;
         
-        RETURN QUERY SELECT * FROM tab_sal_pur_tran WHERE sp_tran_unique_code = p_sp_tran_unique_code;
+        RETURN QUERY SELECT * FROM public.tab_sal_pur_tran WHERE sp_tran_unique_code = p_sp_tran_unique_code;
+
+    ELSIF p_action = 'DELETE' THEN
+        UPDATE public.tab_sal_pur_tran SET
+            delete_flag = TRUE,
+            deleted_by = v_audit_user,
+            deleted_on = CURRENT_TIMESTAMP,
+            modified_by = v_audit_user,
+            modified_on = CURRENT_TIMESTAMP
+        WHERE sp_tran_unique_code = p_sp_tran_unique_code;
+
+    ELSIF p_action = 'DELETE_BY_PARENT' THEN
+        -- [ADDED 2026-05-06] Soft Delete all lines for an invoice
+        -- This is used during Edit so we can re-insert fresh lines without losing history
+        UPDATE public.tab_sal_pur_tran SET 
+            delete_flag = TRUE, 
+            deleted_by = v_audit_user, 
+            deleted_on = CURRENT_TIMESTAMP,
+            modified_by = v_audit_user,
+            modified_on = CURRENT_TIMESTAMP
+        WHERE sp_unique_code = p_sp_unique_code;
 
     ELSIF p_action = 'GETBYPARENT' THEN
-        RETURN QUERY SELECT * FROM tab_sal_pur_tran WHERE sp_unique_code = p_sp_unique_code AND delete_flag = FALSE;
+        RETURN QUERY SELECT * FROM public.tab_sal_pur_tran WHERE sp_unique_code = p_sp_unique_code AND delete_flag = FALSE;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$BODY$;
