@@ -52,11 +52,6 @@ namespace SoftBook.Infrastructure.Classes
                     Value = (object?)request.ExpensePartyTypes ?? DBNull.Value 
                 });
                 
-                cmd.Parameters.Add(new NpgsqlParameter("p_expense_v_types", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text) 
-                { 
-                    Value = (object?)request.ExpenseVTypes ?? DBNull.Value 
-                });
-                
                 cmd.Parameters.Add(new NpgsqlParameter("p_top_limit", NpgsqlTypes.NpgsqlDbType.Integer) 
                 { 
                     Value = (object?)request.TopLimit ?? DBNull.Value 
