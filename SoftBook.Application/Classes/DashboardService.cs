@@ -75,7 +75,6 @@ namespace SoftBook.Application.Classes
 
             // Apply defaults if still null
             request.ZoneType ??= "ALL";
-            request.ExpenseVTypes ??= new[] { "Expense" };
             request.TopLimit ??= 10;
             request.Granularity ??= "daily";
             request.InvStatusPartyType ??= "Customer";
