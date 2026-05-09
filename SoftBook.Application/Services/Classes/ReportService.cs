@@ -691,8 +691,10 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetOutstandingComparisonAsync(companyId, Date,where,mode);
         }
 
-
-
+        // Created by Hetak on 08052026
+        public async Task<List<StockSummaryReportDTO>> GetStockSummaryReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetStockSummaryReportAsync(companyId, fromDate, toDate);
+        }
     }
 }
-

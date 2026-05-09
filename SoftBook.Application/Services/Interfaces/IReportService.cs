@@ -57,7 +57,7 @@ namespace SoftBook.Application.Services.Interfaces
         //by Diya 05/04
         Task<IEnumerable<OutstandingComparisonDTO>> GetOutstandingComparisonAsync(int companyId, DateOnly Date ,string? where,string mode);
 
-
-
+        // Created by Hetak on 08052026
+        Task<List<StockSummaryReportDTO>> GetStockSummaryReportAsync(int companyId, DateTime fromDate, DateTime toDate);
     }
 }

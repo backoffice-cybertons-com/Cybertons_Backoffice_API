@@ -497,7 +497,19 @@ namespace SoftBook.API.Controllers
             }
         }
 
-
+        // Created by Hetak on 08052026
+        [HttpGet("stock-summary")]
+        public async Task<IActionResult> GetStockSummaryReport([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                var result = await _reportService.GetStockSummaryReportAsync(companyId, fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }
-

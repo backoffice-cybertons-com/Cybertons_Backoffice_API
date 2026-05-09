@@ -628,10 +628,61 @@ namespace SoftBook.Infrastructure.Classes
             );
         }
 
+        //public async Task<List<InvWiseDTO>> GetSalePurInvWiseAsync(
+        //    int companyId,
+        //    string? invType,
+        //    string? where)
+        //{
+        //    Console.WriteLine($"API PARAMS => companyId={companyId}, invType={invType}, where={where}");
+        //    try
+        //    {
+        //        var result = await ExecuteReaderAsync(
+        //            "SELECT * FROM fn_sale_purchase_register_report(@p_company_id, @p_inv_type, @p_where_clause)",
+        //            cmd =>
+        //            {
+        //                cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+        //                {
+        //                    Value = companyId
+        //                });
+
+        //                string finalWhere = string.IsNullOrWhiteSpace(invType) ? (where ?? "1=1") : $"tsp.inv_type = '{invType}'" + (string.IsNullOrWhiteSpace(where) ? "" : $" AND ({where})");
+
+        //                cmd.Parameters.Add(new NpgsqlParameter("p_inv_type", NpgsqlTypes.NpgsqlDbType.Text) { Value = "INV" });
+        //                cmd.Parameters.Add(new NpgsqlParameter("p_where_clause", NpgsqlTypes.NpgsqlDbType.Text) { Value = finalWhere });
+        //            },
+        //            reader =>
+        //            {
+        //                return new InvWiseDTO
+        //                {
+        //                    InvDate = reader.GetDateTime(reader.GetOrdinal("inv_date")),
+        //                    InvNo = reader["inv_no"]?.ToString(),
+        //                    InvType = reader["inv_type"]?.ToString(),
+        //                    SpUniqueCode = Convert.ToInt32(reader["sp_unique_code"]),
+        //                    PartyName = reader.IsDBNull(reader.GetOrdinal("party_name")) ? null : reader.GetString(reader.GetOrdinal("party_name")),
+
+        //                    Qty = reader.IsDBNull(reader.GetOrdinal("qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("qty")),
+
+        //                    TaxableAmount = reader.IsDBNull(reader.GetOrdinal("taxable_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("taxable_amount")),
+        //                    IgstAmount = reader.IsDBNull(reader.GetOrdinal("igst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("igst_amount")),
+        //                    CgstAmount = reader.IsDBNull(reader.GetOrdinal("cgst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("cgst_amount")),
+        //                    SgstAmount = reader.IsDBNull(reader.GetOrdinal("sgst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("sgst_amount")),
+        //                    TaxAmount = reader.IsDBNull(reader.GetOrdinal("tax_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("tax_amount")),
+        //                    AvgPrice = reader.IsDBNull(reader.GetOrdinal("avgprice")) ? 0 : reader.GetDecimal(reader.GetOrdinal("avgprice")),
+        //                    TotalAmount = reader.IsDBNull(reader.GetOrdinal("total_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("total_amount")),
+        //                    TotDiscount = reader.IsDBNull(reader.GetOrdinal("tot_discount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("tot_discount")),
+        //                    RoundOff = reader.IsDBNull(reader.GetOrdinal("round_off")) ? 0 : reader.GetDecimal(reader.GetOrdinal("round_off")),
+        //                    FinalAmount = reader.IsDBNull(reader.GetOrdinal("final_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("final_amount")),
+        //                    AddPrice = reader.IsDBNull(reader.GetOrdinal("add_price")) ? 1 : reader.GetDecimal(reader.GetOrdinal("add_price")),
+        //                    AddAmount = reader.IsDBNull(reader.GetOrdinal("add_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("add_amount"))
+        //                };
+        //            };
+        //            }
+        //}
+
         public async Task<List<InvWiseDTO>> GetSalePurInvWiseAsync(
-            int companyId,
-            string? invType,
-            string? where)
+      int companyId,
+      string? invType,
+      string? where)
         {
             Console.WriteLine($"API PARAMS => companyId={companyId}, invType={invType}, where={where}");
             try
@@ -689,6 +740,7 @@ namespace SoftBook.Infrastructure.Classes
                 return new List<InvWiseDTO>();
             }
         }
+
 
 
 
@@ -1259,6 +1311,25 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+        // Created by Hetak on 08052026
+        public async Task<List<StockSummaryReportDTO>> GetStockSummaryReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            return await ExecuteReaderAsync("public.fn_stock_summary_report", cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+            }, reader => new StockSummaryReportDTO
+            {
+                ProductId = SafeGetInt(reader, "product_id"),
+                ProductName = SafeGetString(reader, "product_name"),
+                UnitName = SafeGetString(reader, "unit_name"),
+                OpeningQty = reader.IsDBNull(reader.GetOrdinal("opening_qty")) ? 0 : Convert.ToDecimal(reader["opening_qty"]),
+                InwardQty = reader.IsDBNull(reader.GetOrdinal("inward_qty")) ? 0 : Convert.ToDecimal(reader["inward_qty"]),
+                OutwardQty = reader.IsDBNull(reader.GetOrdinal("outward_qty")) ? 0 : Convert.ToDecimal(reader["outward_qty"]),
+                ClosingQty = reader.IsDBNull(reader.GetOrdinal("closing_qty")) ? 0 : Convert.ToDecimal(reader["closing_qty"])
+            });
+        }
     }
 }
 
