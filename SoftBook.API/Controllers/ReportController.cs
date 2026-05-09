@@ -226,6 +226,37 @@ namespace SoftBook.API.Controllers
             }
         }
 
+
+
+
+        //sale-pur-summary TransactionWise
+        [HttpGet("sale-purchase-register-transactionWise")]
+        public async Task<IActionResult> GetSalePurchaseRegisterTransactionWise(
+            [FromQuery] int companyId,
+            [FromQuery] string? invType,
+            [FromQuery] string? where)
+        {
+            try
+            {
+                Console.WriteLine($"[ReportController] Fetching SalePurchaseRegisterTransactionWise. CompanyId: {companyId}, Type: {invType}, Where: {where}");
+
+                if (companyId == 0)
+                {
+                    Console.WriteLine("[ReportController] Warning: CompanyId is 0. Returning BadRequest.");
+                    return BadRequest("Company context not found.");
+                }
+
+                var report = await _reportService.GetSalePurchaseRegisterTransactionWise(companyId, invType, where);
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+
+
         //sale-pur-summary itemwise
         [HttpGet("sale-purchase-register-itemwise")]
         public async Task<IActionResult> GetSalePurchaseRegisterItemwise(

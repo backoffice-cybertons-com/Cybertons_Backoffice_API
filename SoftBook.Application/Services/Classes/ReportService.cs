@@ -691,6 +691,12 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetOutstandingComparisonAsync(companyId, Date,where,mode);
         }
 
+        //by diyta 05-08
+        public async Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where)
+        {
+            return await _reportRepository.GetSalePurchaseRegisterTransactionWise(companyId, invType, where);
+        }
+
 
 
     }

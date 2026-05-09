@@ -63,5 +63,9 @@ namespace SoftBook.Domain.RepositoryInterfaces
         Task<IEnumerable<OutstandingComparisonDTO>> GetOutstandingComparisonAsync(int companyId, DateOnly Date,string? where,string mode);
 
 
+        //by diya 05-08
+        Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where);
+
+
     }
 }

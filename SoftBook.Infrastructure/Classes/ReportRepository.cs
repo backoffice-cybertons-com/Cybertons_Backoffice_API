@@ -512,6 +512,7 @@ namespace SoftBook.Infrastructure.Classes
                             PartyName = reader.IsDBNull(reader.GetOrdinal("party_name")) ? null : reader.GetString(reader.GetOrdinal("party_name")),
                             ProductName = reader.IsDBNull(reader.GetOrdinal("product_name")) ? null : reader.GetString(reader.GetOrdinal("product_name")),
                             Qty = reader.IsDBNull(reader.GetOrdinal("qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("qty")),
+                            cogs = reader.IsDBNull(reader.GetOrdinal("cogs")) ? 0 : reader.GetDecimal(reader.GetOrdinal("cogs")),
                             AvgPrice = reader.IsDBNull(reader.GetOrdinal("avgprice")) ? 0 : reader.GetDecimal(reader.GetOrdinal("avgprice")),
                             TaxableAmount = reader.IsDBNull(reader.GetOrdinal("taxable_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("taxable_amount")),
                             IgstAmount = reader.IsDBNull(reader.GetOrdinal("igst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("igst_amount")),
@@ -1259,6 +1260,54 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+
+        public async Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(
+         int companyId,
+         string? invType,
+         string? where)
+        {
+            return await ExecuteReaderAsync(
+                "SELECT * FROM fn_sale_purchase_register_report(@p_company_id, @p_inv_type, @p_where_clause)",
+                cmd =>
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                    {
+                        Value = companyId
+                    });
+
+                    string finalWhere = string.IsNullOrWhiteSpace(invType) ? (where ?? "1=1") : $"tsp.inv_type = '{invType}'" + (string.IsNullOrWhiteSpace(where) ? "" : $" AND ({where})");
+
+                    cmd.Parameters.Add(new NpgsqlParameter("p_inv_type", NpgsqlTypes.NpgsqlDbType.Text) { Value = "TRANSACTION" });
+                    cmd.Parameters.Add(new NpgsqlParameter("p_where_clause", NpgsqlTypes.NpgsqlDbType.Text) { Value = finalWhere });
+                },
+                reader =>
+                {
+                    return new SalePurchaseRegisterTransactionwiseDTO
+                    {
+                        InvDate = reader.GetDateTime(reader.GetOrdinal("inv_date")),
+                        InvNo = reader["inv_no"]?.ToString(),
+                        ProductName = reader.IsDBNull(reader.GetOrdinal("product_name")) ? null : reader.GetString(reader.GetOrdinal("product_name")),
+                        PartyName = reader.IsDBNull(reader.GetOrdinal("party_name")) ? null : reader.GetString(reader.GetOrdinal("party_name")),
+                        InvType = reader.IsDBNull(reader.GetOrdinal("inv_type")) ? null : reader.GetString(reader.GetOrdinal("inv_type")),
+                        Qty = reader.IsDBNull(reader.GetOrdinal("qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("qty")),
+                        cogs = reader.IsDBNull(reader.GetOrdinal("cogs")) ? 0 : reader.GetDecimal(reader.GetOrdinal("cogs")),
+                        AvgPrice = reader.IsDBNull(reader.GetOrdinal("avgprice")) ? 0 : reader.GetDecimal(reader.GetOrdinal("avgprice")),
+                        TaxableAmount = reader.IsDBNull(reader.GetOrdinal("taxable_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("taxable_amount")),
+                        IgstAmount = reader.IsDBNull(reader.GetOrdinal("igst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("igst_amount")),
+                        CgstAmount = reader.IsDBNull(reader.GetOrdinal("cgst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("cgst_amount")),
+                        SgstAmount = reader.IsDBNull(reader.GetOrdinal("sgst_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("sgst_amount")),
+                        TaxAmount = reader.IsDBNull(reader.GetOrdinal("tax_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("tax_amount")),
+                        TotalAmount = reader.IsDBNull(reader.GetOrdinal("total_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("total_amount")),
+                        TotDiscount = reader.IsDBNull(reader.GetOrdinal("tot_discount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("tot_discount")),
+                        RoundOff = reader.IsDBNull(reader.GetOrdinal("round_off")) ? 0 : reader.GetDecimal(reader.GetOrdinal("round_off")),
+                        FinalAmount = reader.IsDBNull(reader.GetOrdinal("final_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("final_amount")),
+                        AddPrice = reader.IsDBNull(reader.GetOrdinal("add_price")) ? 0 : reader.GetDecimal(reader.GetOrdinal("add_price")),
+                        AddAmount = reader.IsDBNull(reader.GetOrdinal("add_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("add_amount"))
+                    };
+                },
+                CommandType.Text
+            );
+        }
     }
 }
 

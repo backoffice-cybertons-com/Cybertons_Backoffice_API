@@ -37,6 +37,7 @@ namespace SoftBook.Domain.DTOs
         public string PartyName { get; set; }
         public string ProductName { get; set; }
         public decimal Qty { get; set; }
+        public decimal cogs { get; set; }
         public decimal AvgPrice { get; set; }
         public decimal TaxableAmount { get; set; }
         public decimal IgstAmount { get; set; }
