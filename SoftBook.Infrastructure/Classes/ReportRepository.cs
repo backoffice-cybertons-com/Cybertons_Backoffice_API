@@ -1379,6 +1379,43 @@ namespace SoftBook.Infrastructure.Classes
                 CommandType.Text
             );
         }
+
+        // Developed by Hetak on 11-05-2026
+        public async Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            try
+            {
+                return await ExecuteReaderAsync(
+                    "SELECT * FROM fn_stock_ledger_datewise_report(@p_company_id, @p_from_date, @p_to_date)",
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId });
+                        cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
+                        cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+                    },
+                    reader =>
+                    {
+                        return new StockLedgerDatewiseDTO
+                        {
+                            SrNo        = reader.IsDBNull(reader.GetOrdinal("sr_no"))        ? 0    : reader.GetInt64(reader.GetOrdinal("sr_no")),
+                            TranDate    = reader.IsDBNull(reader.GetOrdinal("tran_date"))    ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("tran_date")),
+                            Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString(reader.GetOrdinal("description")),
+                            InwardQty   = reader.IsDBNull(reader.GetOrdinal("inward_qty"))  ? 0    : reader.GetDecimal(reader.GetOrdinal("inward_qty")),
+                            OutwardQty  = reader.IsDBNull(reader.GetOrdinal("outward_qty")) ? 0    : reader.GetDecimal(reader.GetOrdinal("outward_qty")),
+                            BalanceQty  = reader.IsDBNull(reader.GetOrdinal("balance_qty")) ? 0    : reader.GetDecimal(reader.GetOrdinal("balance_qty"))
+                        };
+                    },
+                    CommandType.Text
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetStockLedgerDatewiseAsync:");
+                Console.WriteLine($"CompanyId: {companyId}, From: {fromDate:yyyy-MM-dd}, To: {toDate:yyyy-MM-dd}");
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
     }
 }
 

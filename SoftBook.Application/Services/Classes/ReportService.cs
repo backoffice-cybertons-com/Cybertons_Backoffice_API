@@ -696,6 +696,13 @@ namespace SoftBook.Application.Services.Classes
         {
             return await _reportRepository.GetStockSummaryReportAsync(companyId, fromDate, toDate);
         }
+
+        // Developed by Hetak on 11-05-2026
+        public async Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate);
+        }
+
         //by diyta 05-08
         public async Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where)
         {

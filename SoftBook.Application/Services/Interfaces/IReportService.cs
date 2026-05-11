@@ -60,6 +60,9 @@ namespace SoftBook.Application.Services.Interfaces
         // Created by Hetak on 08052026
         Task<List<StockSummaryReportDTO>> GetStockSummaryReportAsync(int companyId, DateTime fromDate, DateTime toDate);
 
+        // Developed by Hetak on 11-05-2026
+        Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate);
+
         Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where);
 
     }

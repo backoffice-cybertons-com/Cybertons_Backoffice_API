@@ -542,5 +542,20 @@ namespace SoftBook.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        // Developed by Hetak on 11-05-2026
+        [HttpGet("stock-ledger-datewise")]
+        public async Task<IActionResult> GetStockLedgerDatewise([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                var result = await _reportService.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }
