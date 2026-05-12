@@ -125,6 +125,56 @@ namespace SoftBook.Infrastructure.Classes
             return true;
         }
 
-       
+        public async Task<List<TaskModel>> GetPendingReminders(int companyId)
+        {
+            string query = @"
+    SELECT *
+    FROM tab_tasks
+    WHERE
+        reminder = true
+        AND reminder_sent = false
+        AND reminder_date <= NOW()
+        AND is_deleted = false
+        AND task_status != 'Completed'
+        AND company_id = @CompanyId
+";
+
+            return await ExecuteRawQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue(
+                        "@CompanyId",
+                        companyId);
+                },
+                MapReader);
+        }
+
+        public async Task MarkReminderSent(
+    int companyId,
+    long taskId)
+        {
+            string query = @"
+    UPDATE tab_tasks
+    SET reminder_sent = true
+    WHERE task_id = @TaskId
+    AND company_id = @CompanyId
+";
+
+            await ExecuteNonQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue(
+                        "@TaskId",
+                        taskId);
+
+                    cmd.Parameters.AddWithValue(
+                        "@CompanyId",
+                        companyId);
+                },
+                CommandType.Text);
+        }
+
     }
 }

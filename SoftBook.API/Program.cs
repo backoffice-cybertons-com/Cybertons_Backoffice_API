@@ -142,7 +142,8 @@ builder.Services.AddScoped<IPermissionRepository, RolePermissionRepository>();
 builder.Services.AddScoped<IPartyTypeRepository, PartyTypeRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
- 
+builder.Services.AddHostedService<ReminderBackgroundService>();
+
 
 
 
