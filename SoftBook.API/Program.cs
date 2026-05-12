@@ -137,9 +137,12 @@ builder.Services.AddScoped<ICompanyProfileRepository, CompanyProfileRepository>(
 builder.Services.AddScoped<IJournalRepository, JournalRepository>();
 builder.Services.AddScoped<IPayRecRepository, PayRecRepository>();
 builder.Services.AddScoped<IReportRepository, ReportRepository>();
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IPermissionRepository, RolePermissionRepository>();
 builder.Services.AddScoped<IPartyTypeRepository, PartyTypeRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
+ 
 
 
 
@@ -160,8 +163,11 @@ builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 builder.Services.AddScoped<IJournalService, JournalService>();
 builder.Services.AddScoped<IPayRecService, PayRecService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IPartyTypeService, PartyTypeService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ITaskTemplateService, TaskTemplateService>();
+
 
 
 builder.Services.AddScoped<EmailService>();
