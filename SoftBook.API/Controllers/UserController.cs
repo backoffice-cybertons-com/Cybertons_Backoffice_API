@@ -171,7 +171,12 @@ namespace SoftBook.API.Controllers
         [HttpGet("{userId}/permissions")]
         public async Task<IActionResult> GetPermissions(int userId)
         {
-            var permissions = await _userService.GetSidebarPermissionsAsync(userId, _tenantProvider.CompanyId ?? 0);
+            // TenantMiddleware sets CompanyId from JWT "CompanyId" / header; if a request skips that path, fall back to the claim.
+            var companyId = _tenantProvider.CompanyId
+                ?? (int.TryParse(User.FindFirst("CompanyId")?.Value, out var cid) ? cid : (int?)null)
+                ?? (int.TryParse(User.FindFirst("TenantId")?.Value, out var tid) ? tid : 0);
+
+            var permissions = await _userService.GetSidebarPermissionsAsync(userId, companyId);
             return Ok(permissions);
         }
 
