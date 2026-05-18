@@ -141,8 +141,10 @@ builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IPermissionRepository, RolePermissionRepository>();
 builder.Services.AddScoped<IPartyTypeRepository, PartyTypeRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
-builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
- 
+            builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
+            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+            builder.Services.AddHostedService<ReminderBackgroundService>();
+
 
 
 
@@ -166,7 +168,9 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IPartyTypeService, PartyTypeService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
-builder.Services.AddScoped<ITaskTemplateService, TaskTemplateService>();
+            builder.Services.AddScoped<ITaskTemplateService, TaskTemplateService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IRecurrenceService, RecurrenceService>();
 
 
 

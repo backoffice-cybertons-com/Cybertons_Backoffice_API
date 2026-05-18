@@ -56,5 +56,36 @@ namespace SoftBook.Domain.DTOs
         public bool IsDeleted { get; set; }
         [JsonPropertyName("company_id")]
         public long CompanyId { get; set; }
+
+        [JsonPropertyName("is_recurring")]
+        public bool IsRecurring { get; set; }
+
+        [JsonPropertyName("recurring_group_id")]
+        public Guid? RecurringGroupId { get; set; }
+
+        [JsonPropertyName("recurrence_parent_id")]
+        public long? RecurrenceParentId { get; set; }
+
+        [JsonPropertyName("recurrence_type")]
+        public string? RecurrenceType { get; set; }
+
+        [JsonPropertyName("recurrence_interval")]
+        public int RecurrenceInterval { get; set; } = 1;
+
+        [JsonPropertyName("recurrence_days")]
+        public string? RecurrenceDays { get; set; }
+
+        [JsonPropertyName("recurrence_rule")]
+        public string? RecurrenceRule { get; set; }
+
+        [JsonPropertyName("recurrence_end_date")]
+        public DateTime? RecurrenceEndDate { get; set; }
+
+        [JsonPropertyName("recurrence_occurrence_count")]
+        public int? RecurrenceOccurrenceCount { get; set; }
+
+        [JsonPropertyName("reminder_offset_minutes")]
+        public int? ReminderOffsetMinutes { get; set; }
+
     }
 }

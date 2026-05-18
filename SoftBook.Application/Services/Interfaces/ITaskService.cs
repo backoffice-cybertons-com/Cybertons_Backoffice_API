@@ -10,7 +10,7 @@ namespace SoftBook.Application.Services.Interfaces
         Task<List<TaskModel>> GetTasks(int companyId);
         Task<TaskModel> GetTaskById(int companyId, long taskId);
         Task<long> AddTask(int companyId, TaskModel model);
-        Task<bool> UpdateTask(int companyId, TaskModel model);
-        Task<bool> DeleteTask(int companyId, long taskId);
+        Task<bool> UpdateTask(int companyId, TaskModel model, string updateType = "this");
+        Task<bool> DeleteTask(int companyId, long taskId, string deleteType = "this");
     }
 }

@@ -72,14 +72,14 @@ namespace SoftBook.API.Controllers
         }
 
         [HttpPut]
-        public async Task<IActionResult> UpdateTask(int companyId, [FromBody] TaskModel model)
+        public async Task<IActionResult> UpdateTask(int companyId, [FromBody] TaskModel model, [FromQuery] string updateType = "this")
         {
             if (model == null || model.TaskId <= 0)
             {
                 return BadRequest(new { Message = "Invalid task data" });
             }
 
-            bool success = await _taskService.UpdateTask(companyId,model);
+            bool success = await _taskService.UpdateTask(companyId, model, updateType);
             if (success)
             {
                 return Ok(new { Message = "Task Updated Successfully" });
@@ -88,9 +88,9 @@ namespace SoftBook.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTask(int companyId, long id)
+        public async Task<IActionResult> DeleteTask(int companyId, long id, [FromQuery] string deleteType = "this")
         {
-            bool success = await _taskService.DeleteTask(companyId,id);
+            bool success = await _taskService.DeleteTask(companyId, id, deleteType);
             if (success)
             {
                 return Ok(new { Message = "Task Deleted Successfully" });
