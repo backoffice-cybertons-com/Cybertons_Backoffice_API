@@ -1,198 +1,170 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using Npgsql;
+using SoftBook.Domain.RepositoryInterfaces;
+using SoftBook.Domain.DTOs;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SoftBook.API.Services
 {
+    /// <summary>
+    /// Hosted background service that polls CompanyMaster for all tenants,
+    /// then switches database connections to each tenant's specific database
+    /// to process task reminders.
+    ///
+    /// Flow per cycle:
+    ///   1. Connect to CompanyMaster -> Fetch all active companies.
+    ///   2. Loop through each company.
+    ///   3. Switch connection context (ITenantProvider) to the tenant's DB.
+    ///   4. Fetch pending reminders for that tenant.
+    ///   5. Process notifications and mark as sent.
+    /// </summary>
     public class ReminderBackgroundService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ReminderBackgroundService> _logger;
+
+        // How long to wait between reminder-check cycles.
+        private static readonly TimeSpan PollingInterval = TimeSpan.FromMinutes(1);
 
         public ReminderBackgroundService(
             IServiceProvider serviceProvider,
             ILogger<ReminderBackgroundService> logger)
         {
             _serviceProvider = serviceProvider;
-            _logger = logger;
+            _logger         = logger;
         }
 
-        protected override async Task ExecuteAsync(
-            CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation(
-                "Reminder Background Service Started");
+                "[ReminderService] Started. Polling interval: {Interval}.",
+                PollingInterval);
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    _logger.LogInformation(
-                        "Checking reminders...");
-
-                    using (var scope =
-                        _serviceProvider.CreateScope())
-                    {
-                        var configuration =
-                            scope.ServiceProvider
-                                 .GetRequiredService<IConfiguration>();
-
-                        var connectionString =
-                            configuration.GetConnectionString(
-                                "LocalConnection");
-
-                        using var connection =
-                            new NpgsqlConnection(connectionString);
-
-                        await connection.OpenAsync(stoppingToken);
-
-                        // STEP 1: Find pending reminders
-                        string selectQuery = @"
-                            SELECT
-                                task_id,
-                                company_id,
-                                assigned_user_id,
-                                title
-                            FROM tab_tasks
-                            WHERE
-                                reminder = true
-                                AND reminder_sent = false
-                                AND reminder_date <= NOW()
-                                AND is_deleted = false
-                                AND task_status != 'Completed'
-                        ";
-
-                        using var selectCommand =
-                            new NpgsqlCommand(
-                                selectQuery,
-                                connection);
-
-                        using var reader =
-                            await selectCommand
-                                .ExecuteReaderAsync(stoppingToken);
-
-                        var tasks = new List<(
-                            long TaskId,
-                            long CompanyId,
-                            long UserId,
-                            string Title)>();
-
-                        while (await reader.ReadAsync(stoppingToken))
-                        {
-                            tasks.Add((
-                                Convert.ToInt64(reader["task_id"]),
-                                Convert.ToInt64(reader["company_id"]),
-                                reader["assigned_user_id"] == DBNull.Value
-                                    ? 0
-                                    : Convert.ToInt64(
-                                        reader["assigned_user_id"]),
-                                reader["title"].ToString()
-                            ));
-                        }
-
-                        await reader.CloseAsync();
-
-                        // STEP 2: Create notifications
-                        foreach (var task in tasks)
-                        {
-                            _logger.LogInformation(
-                                $"Reminder Found: {task.TaskId}");
-
-                            string insertNotification = @"
-                                INSERT INTO tab_notifications
-                                (
-                                    company_id,
-                                    user_id,
-                                    title,
-                                    message,
-                                    reference_type,
-                                    reference_id,
-                                    created_date,
-                                    is_read,
-                                    is_deleted
-                                )
-                                VALUES
-                                (
-                                    @CompanyId,
-                                    @UserId,
-                                    @Title,
-                                    @Message,
-                                    'TASK',
-                                    @ReferenceId,
-                                    NOW(),
-                                    false,
-                                    false
-                                )
-                            ";
-
-                            using var insertCommand =
-                                new NpgsqlCommand(
-                                    insertNotification,
-                                    connection);
-
-                            insertCommand.Parameters.AddWithValue(
-                                "@CompanyId",
-                                task.CompanyId);
-
-                            insertCommand.Parameters.AddWithValue(
-                                "@UserId",
-                                task.UserId);
-
-                            insertCommand.Parameters.AddWithValue(
-                                "@Title",
-                                "Task Reminder");
-
-                            insertCommand.Parameters.AddWithValue(
-                                "@Message",
-                                $"Reminder for task: {task.Title}");
-
-                            insertCommand.Parameters.AddWithValue(
-                                "@ReferenceId",
-                                task.TaskId);
-
-                            await insertCommand
-                                .ExecuteNonQueryAsync(stoppingToken);
-
-                            // STEP 3: Mark reminder as sent
-                            string updateTask = @"
-                                UPDATE tab_tasks
-                                SET reminder_sent = true
-                                WHERE task_id = @TaskId
-                            ";
-
-                            using var updateCommand =
-                                new NpgsqlCommand(
-                                    updateTask,
-                                    connection);
-
-                            updateCommand.Parameters.AddWithValue(
-                                "@TaskId",
-                                task.TaskId);
-
-                            await updateCommand
-                                .ExecuteNonQueryAsync(stoppingToken);
-
-                            _logger.LogInformation(
-                                $"Notification created for task {task.TaskId}");
-                        }
-                    }
+                    await ProcessAllPendingReminders(stoppingToken);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(
-                        ex,
-                        "Error in ReminderBackgroundService");
+                    _logger.LogError(ex,
+                        "[ReminderService] Unhandled error in polling cycle. Will retry next interval.");
                 }
 
-                await Task.Delay(
-                    TimeSpan.FromMinutes(1),
-                    stoppingToken);
+                await Task.Delay(PollingInterval, stoppingToken);
+            }
+
+            _logger.LogInformation("[ReminderService] Stopped.");
+        }
+
+        private async Task ProcessAllPendingReminders(CancellationToken stoppingToken)
+        {
+            using var globalScope = _serviceProvider.CreateScope();
+            var companyRepo = globalScope.ServiceProvider.GetRequiredService<ICompanyRepository>();
+
+            _logger.LogInformation("========== Reminder Service Cycle Started (DB-per-Tenant) ==========");
+
+            // 1. Get all active companies from CompanyMaster
+            var companies = await companyRepo.GetAllAsync();
+            _logger.LogInformation("[ReminderService] Found {Count} active companies to process.", companies.Count);
+
+            foreach (var company in companies)
+            {
+                if (stoppingToken.IsCancellationRequested) break;
+
+                _logger.LogInformation(">>> Processing Company: {CompanyName} (ID: {CompanyId}) | DB: {DbName}", 
+                    company.Name, company.Id, GetDbNameFromConnectionString(company.ConnectionString));
+
+                try
+                {
+                    // Create a new scope for this tenant to ensure fresh repositories with correct connection string
+                    using var tenantScope = _serviceProvider.CreateScope();
+                    var tenantProvider = tenantScope.ServiceProvider.GetRequiredService<ITenantProvider>();
+                    
+                    // IMPORTANT: Switch the connection string for this tenant
+                    tenantProvider.ConnectionString = company.ConnectionString;
+                    tenantProvider.CompanyId = company.Id;
+
+                    var taskRepo = tenantScope.ServiceProvider.GetRequiredService<ITaskRepository>();
+                    var notificationRepo = tenantScope.ServiceProvider.GetRequiredService<INotificationRepository>();
+
+                    // 2. Fetch pending reminders for THIS tenant only
+                    var pendingReminders = await taskRepo.GetPendingReminders(company.Id);
+
+                    _logger.LogInformation("[ReminderService]   - Found {Count} reminders for tenant {CompanyName}.", 
+                        pendingReminders.Count, company.Name);
+
+                    if (pendingReminders.Count == 0) continue;
+
+                    int successCount = 0;
+                    int failCount = 0;
+
+                    foreach (var task in pendingReminders)
+                    {
+                        if (stoppingToken.IsCancellationRequested) break;
+
+                        if (!task.AssignedUserId.HasValue)
+                        {
+                            _logger.LogWarning("[ReminderService]     - Task {TaskId} has no assigned user — skipping.", task.TaskId);
+                            continue;
+                        }
+
+                        try
+                        {
+                            var notification = new NotificationModel
+                            {
+                                CompanyId = task.CompanyId,
+                                UserId = task.AssignedUserId.Value,
+                                Title = "Task Reminder",
+                                Message = $"Reminder: \"{task.Title}\" is due.",
+                                ReferenceType = "TASK",
+                                ReferenceId = task.TaskId,
+                                CreatedDate = DateTime.UtcNow
+                            };
+
+                            await notificationRepo.AddNotification(notification);
+                            await taskRepo.MarkReminderSent((int)task.CompanyId, task.TaskId);
+
+                            _logger.LogInformation("[ReminderService]     - Reminder sent: Task {TaskId} -> User {UserId}", 
+                                task.TaskId, task.AssignedUserId.Value);
+                            successCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            failCount++;
+                            _logger.LogError(ex, "[ReminderService]     - Error processing Task {TaskId} for {CompanyName}", 
+                                task.TaskId, company.Name);
+                        }
+                    }
+
+                    _logger.LogInformation("[ReminderService]   - {CompanyName} summary: {Success} sent, {Fail} failed.", 
+                        company.Name, successCount, failCount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[ReminderService] Critical error processing tenant {CompanyName} (ID: {CompanyId}). Skipping to next tenant.", 
+                        company.Name, company.Id);
+                }
+            }
+
+            _logger.LogInformation("========== Reminder Service Cycle Complete ==========");
+        }
+
+        private string GetDbNameFromConnectionString(string connectionString)
+        {
+            if (string.IsNullOrEmpty(connectionString)) return "NULL";
+            try
+            {
+                var builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+                return builder.Database ?? "Unknown";
+            }
+            catch
+            {
+                return "Invalid Connection String";
             }
         }
     }

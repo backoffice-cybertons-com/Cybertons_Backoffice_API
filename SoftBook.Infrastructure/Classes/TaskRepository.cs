@@ -41,11 +41,74 @@ namespace SoftBook.Infrastructure.Classes
             TaskCategoryId   = reader["task_category_id"] == DBNull.Value ? null : Convert.ToInt64(reader["task_category_id"]),
             IsDeleted        = Convert.ToBoolean(reader["is_deleted"]),
             CompanyId = Convert.ToInt64(reader["company_id"]),
+
+
+            IsRecurring = reader["is_recurring"] == DBNull.Value
+                ? false
+                : Convert.ToBoolean(reader["is_recurring"]),
+
+                        RecurringGroupId = reader["recurring_group_id"] == DBNull.Value
+                ? null
+                : Guid.Parse(reader["recurring_group_id"].ToString()),
+
+                        RecurrenceParentId = reader["recurrence_parent_id"] == DBNull.Value
+                ? null
+                : Convert.ToInt64(reader["recurrence_parent_id"]),
+
+                        RecurrenceType = reader["recurrence_type"]?.ToString(),
+
+                        RecurrenceInterval = reader["recurrence_interval"] == DBNull.Value
+                ? 1
+                : Convert.ToInt32(reader["recurrence_interval"]),
+
+                        RecurrenceDays = reader["recurrence_days"]?.ToString(),
+
+                        RecurrenceRule = reader["recurrence_rule"]?.ToString(),
+
+                        RecurrenceEndDate = reader["recurrence_end_date"] == DBNull.Value
+                ? null
+                : Convert.ToDateTime(reader["recurrence_end_date"]),
+
+                        RecurrenceOccurrenceCount = reader["recurrence_occurrence_count"] == DBNull.Value
+                ? null
+                : Convert.ToInt32(reader["recurrence_occurrence_count"]),
+
+                        ReminderOffsetMinutes = reader["reminder_offset_minutes"] == DBNull.Value
+                ? null
+                : Convert.ToInt32(reader["reminder_offset_minutes"]),
         };
 
         // ─── shared fn_tasks call builder ──────────────────────────────────────
-        private const string FnQuery = "SELECT * FROM fn_tasks(@Action, @TaskId, @Title, @Description, @InitiatedUserId, @AssignedUserId, @AssignedDate, @ExpectedDate, @Reminder, @ReminderDate, @FinishDate, @FinishDescription, @TaskStatus, @Priority, @TaskCategoryId,@CompanyId)";
-
+        // private const string FnQuery = "SELECT * FROM fn_tasks(@Action, @TaskId, @Title, @Description, @InitiatedUserId, @AssignedUserId, @AssignedDate, @ExpectedDate, @Reminder, @ReminderDate, @FinishDate, @FinishDescription, @TaskStatus, @Priority, @TaskCategoryId,@CompanyId)";
+        private const string FnQuery =
+    "SELECT * FROM fn_tasks(" +
+    "@Action," +
+    "@TaskId," +
+    "@Title," +
+    "@Description," +
+    "@InitiatedUserId," +
+    "@AssignedUserId," +
+    "@AssignedDate," +
+    "@ExpectedDate," +
+    "@Reminder," +
+    "@ReminderDate," +
+    "@FinishDate," +
+    "@FinishDescription," +
+    "@TaskStatus," +
+    "@Priority," +
+    "@TaskCategoryId," +
+    "@IsRecurring," +
+    "@RecurringGroupId," +
+    "@RecurrenceParentId," +
+    "@RecurrenceType," +
+    "@RecurrenceInterval," +
+    "@RecurrenceDays," +
+    "@RecurrenceRule," +
+    "@RecurrenceEndDate," +
+    "@RecurrenceOccurrenceCount," +
+    "@ReminderOffsetMinutes," +
+    "@CompanyId" +
+    ")";
         private static void BindParams(
             IDbCommand      cmd,
             string          action,
@@ -73,6 +136,65 @@ namespace SoftBook.Infrastructure.Classes
                 {
                     Value = (object)(companyId ?? model?.CompanyId) ?? DBNull.Value
                 });
+            cmd.Parameters.Add(new NpgsqlParameter("@IsRecurring",
+    NpgsqlTypes.NpgsqlDbType.Boolean)
+            {
+                Value = model?.IsRecurring ?? false
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurringGroupId",
+                NpgsqlTypes.NpgsqlDbType.Uuid)
+            {
+                Value = (object?)model?.RecurringGroupId ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceParentId",
+                NpgsqlTypes.NpgsqlDbType.Bigint)
+            {
+                Value = (object?)model?.RecurrenceParentId ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceType",
+                NpgsqlTypes.NpgsqlDbType.Text)
+            {
+                Value = (object?)model?.RecurrenceType ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceInterval",
+                NpgsqlTypes.NpgsqlDbType.Integer)
+            {
+                Value = model?.RecurrenceInterval ?? 1
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceDays",
+                NpgsqlTypes.NpgsqlDbType.Text)
+            {
+                Value = (object?)model?.RecurrenceDays ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceRule",
+                NpgsqlTypes.NpgsqlDbType.Text)
+            {
+                Value = (object?)model?.RecurrenceRule ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceEndDate",
+                NpgsqlTypes.NpgsqlDbType.Timestamp)
+            {
+                Value = (object?)model?.RecurrenceEndDate ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@RecurrenceOccurrenceCount",
+                NpgsqlTypes.NpgsqlDbType.Integer)
+            {
+                Value = (object?)model?.RecurrenceOccurrenceCount ?? DBNull.Value
+            });
+
+            cmd.Parameters.Add(new NpgsqlParameter("@ReminderOffsetMinutes",
+                NpgsqlTypes.NpgsqlDbType.Integer)
+            {
+                Value = (object?)model?.ReminderOffsetMinutes ?? DBNull.Value
+            });
         }
 
         // ─── public methods ─────────────────────────────────────────────────────
@@ -105,21 +227,115 @@ namespace SoftBook.Infrastructure.Classes
             return results.FirstOrDefault()?.TaskId ?? 0;
         }
 
-        public async Task<bool> UpdateTask(int companyId,TaskModel model)
+        public async Task<bool> UpdateTask(int companyId, TaskModel model)
         {
             await ExecuteNonQueryAsync(
                 FnQuery,
                 cmd => BindParams(cmd, "UPDATE", companyId, model),
                 CommandType.Text);
 
+            // If reminder is enabled, reset reminder_sent so the background service
+            // re-evaluates the (possibly changed) reminder date/time.
+            if (model.Reminder && model.ReminderDate.HasValue)
+            {
+                string resetQuery = @"
+    UPDATE tab_tasks
+    SET reminder_sent = false
+    WHERE task_id = @TaskId
+    AND company_id = @CompanyId";
+
+                await ExecuteNonQueryAsync(
+                    resetQuery,
+                    cmd =>
+                    {
+                        cmd.Parameters.AddWithValue("@TaskId", model.TaskId);
+                        cmd.Parameters.AddWithValue("@CompanyId", companyId);
+                    },
+                    CommandType.Text);
+            }
+
             return true;
         }
 
         public async Task<bool> DeleteTask(int companyId,long taskId)
         {
+            string query = @"
+                UPDATE tab_tasks
+                SET is_deleted = true
+                WHERE company_id = @CompanyId
+                AND task_id = @TaskId
+                AND task_status NOT IN ('Completed', 'Canceled')";
+
             await ExecuteNonQueryAsync(
-                FnQuery,
-                cmd => BindParams(cmd, "DELETE", companyId,taskId: taskId),
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                    cmd.Parameters.AddWithValue("@TaskId", taskId);
+                },
+                CommandType.Text);
+
+            return true;
+        }
+
+        public async Task<List<TaskModel>> GetTasksByGroupId(int companyId, Guid groupId)
+        {
+            string query = @"
+                SELECT *
+                FROM tab_tasks
+                WHERE company_id = @CompanyId
+                AND recurring_group_id = @GroupId
+                AND is_deleted = false";
+
+            return await ExecuteRawQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                    cmd.Parameters.Add(new NpgsqlParameter("@GroupId", NpgsqlTypes.NpgsqlDbType.Uuid) { Value = groupId });
+                },
+                MapReader);
+        }
+
+        public async Task<bool> DeleteFutureTasks(int companyId, Guid groupId, DateTime fromDate)
+        {
+            string query = @"
+                UPDATE tab_tasks
+                SET is_deleted = true
+                WHERE company_id = @CompanyId
+                AND recurring_group_id = @GroupId
+                AND assigned_date >= @FromDate
+                AND task_status NOT IN ('Completed', 'Canceled')";
+
+            await ExecuteNonQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                    cmd.Parameters.Add(new NpgsqlParameter("@GroupId", NpgsqlTypes.NpgsqlDbType.Uuid) { Value = groupId });
+                    cmd.Parameters.AddWithValue("@FromDate", fromDate);
+                },
+                CommandType.Text);
+
+            return true;
+        }
+
+        public async Task<bool> DeleteTaskSeries(int companyId, Guid groupId)
+        {
+            string query = @"
+                UPDATE tab_tasks
+                SET is_deleted = true
+                WHERE company_id = @CompanyId
+                AND recurring_group_id = @GroupId
+                AND task_status NOT IN ('Completed', 'Canceled')";
+
+            await ExecuteNonQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                    cmd.Parameters.Add(new NpgsqlParameter("@GroupId", NpgsqlTypes.NpgsqlDbType.Uuid) { Value = groupId });
+                },
                 CommandType.Text);
 
             return true;
@@ -135,7 +351,7 @@ namespace SoftBook.Infrastructure.Classes
         AND reminder_sent = false
         AND reminder_date <= NOW()
         AND is_deleted = false
-        AND task_status != 'Completed'
+        AND task_status NOT IN ('Completed', 'Canceled')
         AND company_id = @CompanyId
 ";
 
@@ -143,12 +359,12 @@ namespace SoftBook.Infrastructure.Classes
                 query,
                 cmd =>
                 {
-                    cmd.Parameters.AddWithValue(
-                        "@CompanyId",
-                        companyId);
+                    cmd.Parameters.AddWithValue("@CompanyId", companyId);
                 },
                 MapReader);
         }
+
+        // GetAllPendingReminders() removed - architecture mismatch (DB-per-tenant)
 
         public async Task MarkReminderSent(
     int companyId,
