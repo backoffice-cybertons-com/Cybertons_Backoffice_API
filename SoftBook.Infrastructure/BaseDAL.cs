@@ -100,7 +100,7 @@ namespace SoftBook.Domain.Data
     protected async Task<T?> ExecuteSingleReaderAsync<T>(string commandText, Action<NpgsqlCommand> buildParameters, Func<NpgsqlDataReader, T> map, CommandType commandType = CommandType.StoredProcedure)
     {
       await using var connection = new NpgsqlConnection(GetConnectionString());
-      await connection.OpenAsync();
+        await connection.OpenAsync();
       Console.WriteLine($"[BaseDAL Diagnostic] Connected to Database: '{connection.Database}' for {commandText}");
 
       await using var command = new NpgsqlCommand(commandText, connection)
