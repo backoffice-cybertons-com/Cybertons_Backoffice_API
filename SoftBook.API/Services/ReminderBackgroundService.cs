@@ -39,9 +39,9 @@ namespace SoftBook.API.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation(
-                "[ReminderService] Started. Polling interval: {Interval}.",
-                PollingInterval);
+            //_logger.LogInformation(
+            //    "[ReminderService] Started. Polling interval: {Interval}.",
+            //    PollingInterval);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -58,7 +58,7 @@ namespace SoftBook.API.Services
                 await Task.Delay(PollingInterval, stoppingToken);
             }
 
-            _logger.LogInformation("[ReminderService] Stopped.");
+           // _logger.LogInformation("[ReminderService] Stopped.");
         }
 
         private async Task ProcessAllPendingReminders(CancellationToken stoppingToken)
@@ -66,11 +66,11 @@ namespace SoftBook.API.Services
             using var globalScope = _serviceProvider.CreateScope();
             var companyRepo = globalScope.ServiceProvider.GetRequiredService<ICompanyRepository>();
 
-            _logger.LogInformation("========== Reminder Service Cycle Started (DB-per-Tenant) ==========");
+           // _logger.LogInformation("========== Reminder Service Cycle Started (DB-per-Tenant) ==========");
 
             // 1. Get all active companies from CompanyMaster
             var companies = await companyRepo.GetAllAsync();
-            _logger.LogInformation("[ReminderService] Found {Count} active companies to process.", companies.Count);
+            //_logger.LogInformation("[ReminderService] Found {Count} active companies to process.", companies.Count);
 
             foreach (var company in companies)
             {
@@ -95,8 +95,8 @@ namespace SoftBook.API.Services
                     // 2. Fetch pending reminders for THIS tenant only
                     var pendingReminders = await taskRepo.GetPendingReminders(company.Id);
 
-                    _logger.LogInformation("[ReminderService]   - Found {Count} reminders for tenant {CompanyName}.", 
-                        pendingReminders.Count, company.Name);
+                    //_logger.LogInformation("[ReminderService]   - Found {Count} reminders for tenant {CompanyName}.", 
+                    //    pendingReminders.Count, company.Name);
 
                     if (pendingReminders.Count == 0) continue;
 
@@ -129,8 +129,8 @@ namespace SoftBook.API.Services
                             await notificationRepo.AddNotification(notification);
                             await taskRepo.MarkReminderSent((int)task.CompanyId, task.TaskId);
 
-                            _logger.LogInformation("[ReminderService]     - Reminder sent: Task {TaskId} -> User {UserId}", 
-                                task.TaskId, task.AssignedUserId.Value);
+                            //_logger.LogInformation("[ReminderService]     - Reminder sent: Task {TaskId} -> User {UserId}", 
+                            //    task.TaskId, task.AssignedUserId.Value);
                             successCount++;
                         }
                         catch (Exception ex)
@@ -141,8 +141,8 @@ namespace SoftBook.API.Services
                         }
                     }
 
-                    _logger.LogInformation("[ReminderService]   - {CompanyName} summary: {Success} sent, {Fail} failed.", 
-                        company.Name, successCount, failCount);
+                    //_logger.LogInformation("[ReminderService]   - {CompanyName} summary: {Success} sent, {Fail} failed.", 
+                    //    company.Name, successCount, failCount);
                 }
                 catch (Exception ex)
                 {
@@ -151,7 +151,7 @@ namespace SoftBook.API.Services
                 }
             }
 
-            _logger.LogInformation("========== Reminder Service Cycle Complete ==========");
+          //  _logger.LogInformation("========== Reminder Service Cycle Complete ==========");
         }
 
         private string GetDbNameFromConnectionString(string connectionString)
