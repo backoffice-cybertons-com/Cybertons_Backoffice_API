@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using SoftBook.Domain.Data;
@@ -17,6 +18,14 @@ namespace SoftBook.Infrastructure.Classes
         public SalePurRepository(IConfiguration configuration, ITenantProvider tenantProvider) 
             : base(configuration, tenantProvider)
         {
+        }
+
+        private static void AddQuantityParameter(NpgsqlCommand cmd, string name, decimal? value)
+        {
+            var parameter = cmd.Parameters.Add(name, NpgsqlTypes.NpgsqlDbType.Numeric);
+            parameter.Precision = 18;
+            parameter.Scale = 4;
+            parameter.Value = (object?)value ?? DBNull.Value;
         }
 
         //public async Task<decimal> GetPartyOutstandingAsync(int companyId, int partyId)
@@ -89,6 +98,113 @@ namespace SoftBook.Infrastructure.Classes
             {
                 return HandleException(ex);
             }
+        }
+
+        public async Task<DbResult> InsertWithNextInvoiceNumberAsync(SalePur entity, int? userId = null)
+        {
+            await using var connection = new NpgsqlConnection(GetConnectionString());
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                await AssignNextInvoiceNumberAsync(connection, transaction, entity);
+
+                var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
+                {
+                    cmd.Parameters.AddWithValue("p_action", "INSERT");
+                    AddSalePurParameters(cmd, entity);
+                    cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
+                }, MapSalePur, transaction);
+
+                await transaction.CommitAsync();
+                return DbResult.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return HandleException(ex);
+            }
+        }
+
+        private async Task AssignNextInvoiceNumberAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, SalePur entity)
+        {
+            var (prefix, width) = await GetInvoiceNumberFormatAsync(connection, transaction, entity);
+            var fiscalYearKey = entity.FiscalYearId?.ToString() ?? "0";
+            var lockKey = $"sale-pur-inv:{entity.CompanyId}:{fiscalYearKey}:{entity.InvType}:{prefix}";
+
+            await using (var lockCommand = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtext(@lock_key)::bigint)", connection, transaction))
+            {
+                lockCommand.Parameters.Add("lock_key", NpgsqlTypes.NpgsqlDbType.Text).Value = lockKey;
+                await lockCommand.ExecuteNonQueryAsync();
+            }
+
+            var pattern = $"^{Regex.Escape(prefix)}([0-9]+)$";
+            int lastNumber;
+
+            await using (var maxCommand = new NpgsqlCommand(@"
+                SELECT COALESCE(MAX((regexp_match(inv_no, @pattern))[1]::integer), 0)
+                FROM public.tab_sale_pur
+                WHERE company_id = @company_id
+                  AND inv_type = @inv_type
+                  AND COALESCE(delete_flag, false) = false
+                  AND inv_no ~ @pattern
+                  AND (@fiscal_year_id IS NULL OR fiscal_year_id = @fiscal_year_id)", connection, transaction))
+            {
+                maxCommand.Parameters.Add("pattern", NpgsqlTypes.NpgsqlDbType.Text).Value = pattern;
+                maxCommand.Parameters.Add("company_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = entity.CompanyId;
+                maxCommand.Parameters.Add("inv_type", NpgsqlTypes.NpgsqlDbType.Varchar).Value = (object?)entity.InvType ?? DBNull.Value;
+                maxCommand.Parameters.Add("fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.FiscalYearId ?? DBNull.Value;
+
+                var result = await maxCommand.ExecuteScalarAsync();
+                lastNumber = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+            }
+
+            var nextNumber = lastNumber + 1;
+            entity.InvNo = $"{prefix}{nextNumber.ToString().PadLeft(width, '0')}";
+            entity.InvoiceSeriesIncrementNumber = nextNumber;
+        }
+
+        private async Task<(string Prefix, int Width)> GetInvoiceNumberFormatAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, SalePur entity)
+        {
+            var format = GetInvoiceNumberFormat(entity.InvNo, entity.InvoiceSeries);
+
+            if (!string.IsNullOrWhiteSpace(format.Prefix) || !string.IsNullOrWhiteSpace(entity.InvNo))
+            {
+                return format;
+            }
+
+            await using var command = new NpgsqlCommand(@"
+                SELECT inv_no
+                FROM public.tab_sale_pur
+                WHERE company_id = @company_id
+                  AND inv_type = @inv_type
+                  AND COALESCE(delete_flag, false) = false
+                  AND inv_no ~ '^(.*?)([0-9]+)$'
+                  AND (@fiscal_year_id IS NULL OR fiscal_year_id = @fiscal_year_id)
+                ORDER BY created_on DESC NULLS LAST, sp_unique_code DESC
+                LIMIT 1", connection, transaction);
+
+            command.Parameters.Add("company_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = entity.CompanyId;
+            command.Parameters.Add("inv_type", NpgsqlTypes.NpgsqlDbType.Varchar).Value = (object?)entity.InvType ?? DBNull.Value;
+            command.Parameters.Add("fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.FiscalYearId ?? DBNull.Value;
+
+            var latestInvoiceNumber = (await command.ExecuteScalarAsync())?.ToString();
+            return GetInvoiceNumberFormat(latestInvoiceNumber, entity.InvoiceSeries);
+        }
+
+        private static (string Prefix, int Width) GetInvoiceNumberFormat(string? invoiceNumber, string? invoiceSeries)
+        {
+            var trimmedInvoiceNumber = invoiceNumber?.Trim() ?? string.Empty;
+            var match = Regex.Match(trimmedInvoiceNumber, @"^(.*?)(\d+)$");
+
+            if (match.Success)
+            {
+                return (match.Groups[1].Value, match.Groups[2].Value.Length);
+            }
+
+            var prefix = invoiceSeries?.Trim() ?? string.Empty;
+            return (prefix, 1);
         }
 
         public async Task<DbResult> UpdateAsync(SalePur entity, int? userId = null)
@@ -253,7 +369,7 @@ namespace SoftBook.Infrastructure.Classes
                 TaxableAmount = reader.IsDBNull(reader.GetOrdinal("taxable_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("taxable_amount")),
                 IgstPercent = reader.IsDBNull(reader.GetOrdinal("igst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("igst_percent")),
                 IgstAmount = reader.IsDBNull(reader.GetOrdinal("igst_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("igst_amount")),
-                CgstPercent = reader.IsDBNull(reader.GetOrdinal("cgst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("cgst_amount")),
+                CgstPercent = reader.IsDBNull(reader.GetOrdinal("cgst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("cgst_percent")),
                 CgstAmount = reader.IsDBNull(reader.GetOrdinal("cgst_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("cgst_amount")),
                 SgstPercent = reader.IsDBNull(reader.GetOrdinal("sgst_percent")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("sgst_percent")),
                 SgstAmount = reader.IsDBNull(reader.GetOrdinal("sgst_amount")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("sgst_amount")),
@@ -386,7 +502,7 @@ namespace SoftBook.Infrastructure.Classes
             // [MODIFIED 2026-05-06] Added missing parameters to match latest DB function fn_sale_pur
             cmd.Parameters.Add("p_invoice_total", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.InvoiceTotal ?? DBNull.Value;
             cmd.Parameters.Add("p_final_invoice_amount", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.FinalInvoiceAmount ?? DBNull.Value;
-            cmd.Parameters.Add("p_total_quantity", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.TotalQuantity;
+            AddQuantityParameter(cmd, "p_total_quantity", entity.TotalQuantity);
         }
 
         private void AddSalePurTranParameters(NpgsqlCommand cmd, SalePurTran entity)
@@ -403,9 +519,9 @@ namespace SoftBook.Infrastructure.Classes
             cmd.Parameters.Add("p_batch_no", NpgsqlTypes.NpgsqlDbType.Varchar).Value = (object?)entity.BatchNo ?? DBNull.Value;
             cmd.Parameters.Add("p_mrp", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.Mrp ?? DBNull.Value;
             cmd.Parameters.Add("p_sub_unit", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.SubUnit ?? DBNull.Value;
-            cmd.Parameters.Add("p_sub_unit_quantity", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.SubUnitQuantity ?? DBNull.Value;
+            AddQuantityParameter(cmd, "p_sub_unit_quantity", entity.SubUnitQuantity);
             cmd.Parameters.Add("p_unit", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.Unit ?? DBNull.Value;
-            cmd.Parameters.Add("p_quantity", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Quantity;
+            AddQuantityParameter(cmd, "p_quantity", entity.Quantity);
             cmd.Parameters.Add("p_rate", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Rate;
             cmd.Parameters.Add("p_discount_per", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.DiscountPer;
             cmd.Parameters.Add("p_amount", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Amount;

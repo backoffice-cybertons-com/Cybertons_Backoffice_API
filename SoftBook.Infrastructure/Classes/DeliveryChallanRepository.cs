@@ -18,6 +18,14 @@ namespace SoftBook.Infrastructure.Classes
         {
         }
 
+        private static void AddQuantityParameter(NpgsqlCommand cmd, string name, decimal? value)
+        {
+            var parameter = cmd.Parameters.Add(name, NpgsqlTypes.NpgsqlDbType.Numeric);
+            parameter.Precision = 18;
+            parameter.Scale = 4;
+            parameter.Value = (object?)value ?? DBNull.Value;
+        }
+
         public async Task<List<DeliveryChallan>> GetAllAsync(int companyId)
         {
             return await ExecuteReaderAsync("public.fn_delivery_challan_master", cmd =>
@@ -240,7 +248,7 @@ namespace SoftBook.Infrastructure.Classes
             cmd.Parameters.Add("p_delivery_challan_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.DeliveryChallanId ?? DBNull.Value;
             cmd.Parameters.Add("p_product_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.ProductId ?? DBNull.Value;
             cmd.Parameters.Add("p_item_details", NpgsqlTypes.NpgsqlDbType.Text).Value = (object?)entity.ItemDetails ?? DBNull.Value;
-            cmd.Parameters.Add("p_quantity", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Quantity;
+            AddQuantityParameter(cmd, "p_quantity", entity.Quantity);
             cmd.Parameters.Add("p_rate", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Rate;
             cmd.Parameters.Add("p_tax_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.TaxId ?? DBNull.Value;
             cmd.Parameters.Add("p_amount", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Amount;
