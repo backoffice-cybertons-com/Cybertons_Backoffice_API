@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Data;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.RepositoryInterfaces;
@@ -196,6 +197,7 @@ app.UseSwaggerUI(c =>
 //}
 
 app.UseHttpsRedirection();
+Directory.CreateDirectory(Path.Combine(app.Environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads", "kanban", "covers"));
 app.UseStaticFiles();
 app.UseCors("AllowBookUI");
 app.UseAuthentication();
