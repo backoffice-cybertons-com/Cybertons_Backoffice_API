@@ -15,6 +15,14 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 	{
 		public ProductRepository(IConfiguration configuration, ITenantProvider tenantProvider) : base(configuration, tenantProvider) { }
 
+		private static void AddQuantityParameter(NpgsqlCommand cmd, string name, decimal? value)
+		{
+			var parameter = cmd.Parameters.Add(name, NpgsqlTypes.NpgsqlDbType.Numeric);
+			parameter.Precision = 18;
+			parameter.Scale = 4;
+			parameter.Value = (object?)value ?? DBNull.Value;
+		}
+
 		public async Task<List<Product>> GetAllAsync()
 		{
 			return await ExecuteReaderAsync("fn_product_master", cmd =>
@@ -166,7 +174,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					cmd.Parameters.AddWithValue("p_tax_group_id", (object?)product.TaxGroupId ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_group_id", (object?)product.ProductGroupId ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_packing_unit", (object?)product.ProductPackingUnit ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_opening_quantity", (object?)product.OpeningQuantity ?? DBNull.Value);
+					AddQuantityParameter(cmd, "p_opening_quantity", product.OpeningQuantity);
 					cmd.Parameters.AddWithValue("p_opening_price", (object?)product.OpeningPrice ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_opening_amount", (object?)product.OpeningAmount ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_purchase_effected_account", (object?)product.PurchaseEffectedAccount ?? DBNull.Value);
@@ -175,9 +183,9 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					cmd.Parameters.AddWithValue("p_selling_price_3", (object?)product.SellingPrice3 ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_selling_price_4", (object?)product.SellingPrice4 ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_selling_price_5", (object?)product.SellingPrice5 ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_min_quantity", (object?)product.MinQuantity ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_max_quantity", (object?)product.MaxQuantity ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_re_order_quantity", (object?)product.ReOrderQuantity ?? DBNull.Value);
+					AddQuantityParameter(cmd, "p_min_quantity", product.MinQuantity);
+					AddQuantityParameter(cmd, "p_max_quantity", product.MaxQuantity);
+					AddQuantityParameter(cmd, "p_re_order_quantity", product.ReOrderQuantity);
 					cmd.Parameters.AddWithValue("p_tax_exemption_id", (object?)product.TaxExemptionId ?? DBNull.Value);
 				});
 				return DbResult.Ok();
@@ -220,7 +228,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					cmd.Parameters.AddWithValue("p_tax_group_id", (object?)product.TaxGroupId ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_group_id", (object?)product.ProductGroupId ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_product_packing_unit", (object?)product.ProductPackingUnit ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_opening_quantity", (object?)product.OpeningQuantity ?? DBNull.Value);
+					AddQuantityParameter(cmd, "p_opening_quantity", product.OpeningQuantity);
 					cmd.Parameters.AddWithValue("p_opening_price", (object?)product.OpeningPrice ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_opening_amount", (object?)product.OpeningAmount ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_purchase_effected_account", (object?)product.PurchaseEffectedAccount ?? DBNull.Value);
@@ -229,9 +237,9 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 					cmd.Parameters.AddWithValue("p_selling_price_3", (object?)product.SellingPrice3 ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_selling_price_4", (object?)product.SellingPrice4 ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("p_selling_price_5", (object?)product.SellingPrice5 ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_min_quantity", (object?)product.MinQuantity ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_max_quantity", (object?)product.MaxQuantity ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("p_re_order_quantity", (object?)product.ReOrderQuantity ?? DBNull.Value);
+					AddQuantityParameter(cmd, "p_min_quantity", product.MinQuantity);
+					AddQuantityParameter(cmd, "p_max_quantity", product.MaxQuantity);
+					AddQuantityParameter(cmd, "p_re_order_quantity", product.ReOrderQuantity);
 					cmd.Parameters.AddWithValue("p_tax_exemption_id", (object?)product.TaxExemptionId ?? DBNull.Value);
 				});
 				return DbResult.Ok();

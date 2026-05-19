@@ -121,6 +121,29 @@ namespace SoftBook.Domain.Data
       return default;
     }
 
+    protected async Task<T?> ExecuteSingleReaderAsync<T>(string commandText, Action<NpgsqlCommand> buildParameters, Func<NpgsqlDataReader, T> map, NpgsqlTransaction transaction, CommandType commandType = CommandType.StoredProcedure)
+    {
+      var connection = transaction.Connection!;
+
+      await using var command = new NpgsqlCommand(commandText, connection)
+      {
+          CommandType = commandType,
+          Transaction = transaction,
+          CommandTimeout = 60
+      };
+
+      buildParameters(command);
+      ApplyPostgresFunctionSyntax(command);
+
+      await using var reader = await command.ExecuteReaderAsync();
+      if (await reader.ReadAsync())
+      {
+        return map(reader);
+      }
+
+      return default;
+    }
+
     protected async Task<List<T>> ExecuteRawQueryAsync<T>(string sqlQuery, Action<NpgsqlCommand> buildParameters, Func<NpgsqlDataReader, T> map)
     {
       var results = new List<T>();

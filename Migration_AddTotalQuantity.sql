@@ -1,5 +1,5 @@
 -- Migration to add total_quantity to transaction headers
-ALTER TABLE tab_sale_pur ADD COLUMN IF NOT EXISTS total_quantity NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE tab_sale_pur ADD COLUMN IF NOT EXISTS total_quantity NUMERIC(18,4) DEFAULT 0.0000;
 
 -- Update existing records with calculated totals from line items
 UPDATE tab_sale_pur h

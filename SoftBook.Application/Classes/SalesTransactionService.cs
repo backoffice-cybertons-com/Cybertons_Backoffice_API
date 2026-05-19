@@ -79,6 +79,9 @@ namespace SoftBook.Application.Services.Classes
             // Enforce Sales identity regardless of what frontend sends
             viewModel.Header.InvType = "Sales";
             viewModel.Header.InvCategory = "Sales Order";
+            viewModel.Header.IgstPercent = 0;
+            viewModel.Header.CgstPercent = 0;
+            viewModel.Header.SgstPercent = 0;
 
             // Double Validation: Recalculate overall header totals based on lines
             viewModel.Header.RateDiff = viewModel.Lines.Sum(l => l.RateDiff ?? 0);
@@ -149,12 +152,15 @@ namespace SoftBook.Application.Services.Classes
             }
             else
             {
-                result = await _salePurRepository.InsertAsync(viewModel.Header, userId);
+                result = await _salePurRepository.InsertWithNextInvoiceNumberAsync(viewModel.Header, userId);
                 if (!result.Success) return result;
                 
                 if (result.Data is SalePur insertedHeader)
                 {
                     viewModel.Header.SpUniqueCode = insertedHeader.SpUniqueCode;
+                    viewModel.Header.InvNo = insertedHeader.InvNo;
+                    viewModel.Header.InvoiceSeries = insertedHeader.InvoiceSeries;
+                    viewModel.Header.InvoiceSeriesIncrementNumber = insertedHeader.InvoiceSeriesIncrementNumber;
                     foreach(var line in viewModel.Lines)
                     {
                         line.SpUniqueCode = insertedHeader.SpUniqueCode;
