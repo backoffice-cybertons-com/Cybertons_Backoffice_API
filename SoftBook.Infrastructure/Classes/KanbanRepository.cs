@@ -24,6 +24,12 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task EnsureSchemaAndDefaultsAsync(int companyId)
         {
+            long userId = _tenantProvider?.UserId ?? 0;
+            if (userId == 0)
+            {
+                throw new UnauthorizedAccessException("User is not authenticated.");
+            }
+
             // Ensure checklist items table exists
             string checklistTableQuery = @"
                 CREATE TABLE IF NOT EXISTS tab_kanban_checklist_items (
@@ -46,32 +52,35 @@ namespace SoftBook.Infrastructure.Classes
                 );";
             await ExecuteNonQueryAsync(checklistTableQuery, cmd => {}, CommandType.Text);
 
-            // Ensure a default board exists for this company
-            string boardCountQuery = "SELECT COUNT(*) FROM tab_boards WHERE company_id = @CompanyId AND is_deleted = false";
+            // Ensure a default board exists for this company and user
+            string boardCountQuery = "SELECT COUNT(*) FROM tab_boards WHERE company_id = @CompanyId AND owner_user_id = @UserId AND is_deleted = false";
             long boardCount = await ExecuteScalarAsync<long>(boardCountQuery, cmd =>
             {
                 cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
             }, CommandType.Text);
 
             long boardId = 0;
             if (boardCount == 0)
             {
                 string insertBoardQuery = @"
-                    INSERT INTO tab_boards (company_id, board_name, is_default)
-                    VALUES (@CompanyId, 'Default Board', true)
+                    INSERT INTO tab_boards (company_id, owner_user_id, board_name, is_default)
+                    VALUES (@CompanyId, @UserId, 'Default Board', true)
                     RETURNING board_id";
 
                 boardId = await ExecuteScalarAsync<long>(insertBoardQuery, cmd =>
                 {
                     cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                    cmd.Parameters.AddWithValue("@UserId", userId);
                 }, CommandType.Text);
             }
             else
             {
-                string selectBoardQuery = "SELECT board_id FROM tab_boards WHERE company_id = @CompanyId AND is_deleted = false ORDER BY is_default DESC, board_id ASC LIMIT 1";
+                string selectBoardQuery = "SELECT board_id FROM tab_boards WHERE company_id = @CompanyId AND owner_user_id = @UserId AND is_deleted = false ORDER BY is_default DESC, board_id ASC LIMIT 1";
                 boardId = await ExecuteScalarAsync<long>(selectBoardQuery, cmd =>
                 {
                     cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                    cmd.Parameters.AddWithValue("@UserId", userId);
                 }, CommandType.Text);
             }
 
@@ -109,19 +118,98 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
-        private async Task<long> GetActiveBoardIdAsync(int companyId)
+        private async Task ValidateBoardOwnershipAsync(long boardId, int companyId)
         {
-            await EnsureSchemaAndDefaultsAsync(companyId);
-            string query = "SELECT board_id FROM tab_boards WHERE company_id = @CompanyId AND is_deleted = false ORDER BY is_default DESC, board_id ASC LIMIT 1";
-            return await ExecuteScalarAsync<long>(query, cmd =>
+            long userId = _tenantProvider?.UserId ?? 0;
+            if (userId == 0)
+                throw new UnauthorizedAccessException("User is not authenticated.");
+
+            string query = @"
+                SELECT COUNT(*)
+                FROM tab_boards
+                WHERE board_id = @BoardId
+                AND owner_user_id = @UserId
+                AND company_id = @CompanyId
+                AND is_deleted = false";
+
+            long count = await ExecuteScalarAsync<long>(query, cmd =>
             {
+                cmd.Parameters.AddWithValue("@BoardId", boardId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
                 cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
             }, CommandType.Text);
+
+            if (count == 0)
+                throw new UnauthorizedAccessException("You do not have permission to access this board.");
         }
 
-        public async Task<List<KanbanColumnModel>> GetColumnsAsync(int companyId)
+        public async Task<List<KanbanBoardModel>> GetBoardsAsync(int companyId)
         {
-            long boardId = await GetActiveBoardIdAsync(companyId);
+            await EnsureSchemaAndDefaultsAsync(companyId);
+            long userId = _tenantProvider?.UserId ?? 0;
+            if (userId == 0)
+                throw new UnauthorizedAccessException("User is not authenticated.");
+
+            string query = @"
+                SELECT board_id, board_name, is_default
+                FROM tab_boards
+                WHERE company_id = @CompanyId AND owner_user_id = @UserId AND is_deleted = false
+                ORDER BY is_default DESC, board_id ASC";
+
+            return await ExecuteRawQueryAsync(query, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+            }, MapBoardReader);
+        }
+
+        public async Task<KanbanBoardModel> CreateBoardAsync(int companyId, string boardName)
+        {
+            long userId = _tenantProvider?.UserId ?? 0;
+            if (userId == 0)
+                throw new UnauthorizedAccessException("User is not authenticated.");
+
+            string insertBoardQuery = @"
+                INSERT INTO tab_boards (company_id, owner_user_id, board_name, is_default)
+                VALUES (@CompanyId, @UserId, @BoardName, false)
+                RETURNING board_id, board_name, is_default";
+
+            var boards = await ExecuteRawQueryAsync(insertBoardQuery, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                cmd.Parameters.AddWithValue("@BoardName", Truncate(boardName, 255));
+            }, MapBoardReader);
+
+            var newBoard = boards.FirstOrDefault()
+                ?? throw new InvalidOperationException("Failed to create board.");
+
+            var defaultColumns = new[]
+            {
+                new { Name = "Today",     Color = "warning", Position = 1 },
+                new { Name = "This Week", Color = "success", Position = 2 },
+                new { Name = "Later",     Color = "dark",    Position = 3 },
+                new { Name = "Completed", Color = "info",    Position = 4 }
+            };
+            string insertColQuery = @"
+                INSERT INTO tab_board_columns (board_id, column_name, column_color, display_order)
+                VALUES (@BoardId, @Name, @Color, @Position)";
+            foreach (var col in defaultColumns)
+            {
+                await ExecuteNonQueryAsync(insertColQuery, cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@BoardId", newBoard.BoardId);
+                    cmd.Parameters.AddWithValue("@Name", col.Name);
+                    cmd.Parameters.AddWithValue("@Color", col.Color);
+                    cmd.Parameters.AddWithValue("@Position", col.Position);
+                }, CommandType.Text);
+            }
+            return newBoard;
+        }
+
+        public async Task<List<KanbanColumnModel>> GetColumnsAsync(int companyId, long boardId)
+        {
+            await ValidateBoardOwnershipAsync(boardId, companyId);
 
             // Fetch active columns ordered by position order
             string colQuery = "SELECT * FROM tab_board_columns WHERE board_id = @BoardId AND is_deleted = false ORDER BY display_order ASC";
@@ -138,7 +226,9 @@ namespace SoftBook.Infrastructure.Classes
                 FROM tab_kanban_tasks t
                 LEFT JOIN tab_user_master u ON t.assigned_user_id = u.user_id
                 WHERE t.board_id = @BoardId AND t.is_deleted = false
-                ORDER BY t.position_order ASC";
+                 
+
+                ORDER BY t.is_pinned DESC, t.position_order ASC";
 
             var tasks = await ExecuteRawQueryAsync(taskQuery, cmd =>
             {
@@ -164,13 +254,14 @@ namespace SoftBook.Infrastructure.Classes
             return columns;
         }
 
-        public async Task<bool> SaveColumnAsync(int companyId, KanbanColumnModel column)
+        public async Task<bool> SaveColumnAsync(int companyId, long boardId, KanbanColumnModel column)
         {
-            long boardId = await GetActiveBoardIdAsync(companyId);
+            await ValidateBoardOwnershipAsync(boardId, companyId);
 
             long colId = 0;
             bool exists = false;
-            if (long.TryParse(column.Id, out colId))
+            bool isUpdate = long.TryParse(column.Id, out colId) && colId > 0;
+            if (isUpdate)
             {
                 string checkQuery = "SELECT COUNT(*) FROM tab_board_columns WHERE column_id = @ColumnId AND board_id = @BoardId";
                 long count = await ExecuteScalarAsync<long>(checkQuery, cmd =>
@@ -179,6 +270,10 @@ namespace SoftBook.Infrastructure.Classes
                     cmd.Parameters.AddWithValue("@BoardId", boardId);
                 }, CommandType.Text);
                 exists = count > 0;
+                if (!exists)
+                {
+                    throw new UnauthorizedAccessException("You do not have permission to access this column.");
+                }
             }
 
             if (exists)
@@ -410,15 +505,16 @@ namespace SoftBook.Infrastructure.Classes
         ////    }
         ////}
         ///
-        public async Task<bool> SaveTaskAsync(int companyId, KanbanTaskModel task)
+        public async Task<bool> SaveTaskAsync(int companyId, long boardId, KanbanTaskModel task)
         {
             try
             {
-                long boardId = await GetActiveBoardIdAsync(companyId);
+                await ValidateBoardOwnershipAsync(boardId, companyId);
 
                 long taskId = 0;
                 bool exists = false;
-                if (long.TryParse(task.Id, out taskId))
+                bool isUpdate = long.TryParse(task.Id, out taskId) && taskId > 0;
+                if (isUpdate)
                 {
                     string checkQuery = "SELECT COUNT(*) FROM tab_kanban_tasks WHERE kanban_task_id = @TaskId AND board_id = @BoardId";
                     long count = await ExecuteScalarAsync<long>(checkQuery, cmd =>
@@ -427,10 +523,27 @@ namespace SoftBook.Infrastructure.Classes
                         cmd.Parameters.AddWithValue("@BoardId", boardId);
                     }, CommandType.Text);
                     exists = count > 0;
+                    if (!exists)
+                    {
+                        throw new UnauthorizedAccessException("You do not have permission to access this task.");
+                    }
                 }
 
                 long columnId = 0;
                 long.TryParse(task.KanId, out columnId);
+                if (columnId > 0)
+                {
+                    string checkColQuery = "SELECT COUNT(*) FROM tab_board_columns WHERE column_id = @ColumnId AND board_id = @BoardId AND is_deleted = false";
+                    long colCount = await ExecuteScalarAsync<long>(checkColQuery, cmd =>
+                    {
+                        cmd.Parameters.AddWithValue("@ColumnId", columnId);
+                        cmd.Parameters.AddWithValue("@BoardId", boardId);
+                    }, CommandType.Text);
+                    if (colCount == 0)
+                    {
+                        throw new UnauthorizedAccessException("You do not have permission to access the specified column.");
+                    }
+                }
 
                 // Serialize labels
                 string labels = "";
@@ -568,9 +681,9 @@ namespace SoftBook.Infrastructure.Classes
                 throw;
             }
         }
-        public async Task<bool> DeleteColumnAsync(int companyId, string columnId)
+        public async Task<bool> DeleteColumnAsync(int companyId, long boardId, string columnId)
         {
-            long boardId = await GetActiveBoardIdAsync(companyId);
+            await ValidateBoardOwnershipAsync(boardId, companyId);
             if (long.TryParse(columnId, out var colId))
             {
                 string query = "UPDATE tab_board_columns SET is_deleted = true, updated_date = CURRENT_TIMESTAMP WHERE column_id = @ColumnId AND board_id = @BoardId";
@@ -583,11 +696,23 @@ namespace SoftBook.Infrastructure.Classes
             }
             return false;
         }
-        public async Task<bool> DeleteTaskAsync(int companyId, string taskId)
+        public async Task<bool> DeleteTaskAsync(int companyId, long boardId, string taskId)
         {
-            long boardId = await GetActiveBoardIdAsync(companyId);
+            await ValidateBoardOwnershipAsync(boardId, companyId);
             if (long.TryParse(taskId, out var tId))
             {
+                // Verify the task belongs to the active board
+                string checkQuery = "SELECT COUNT(*) FROM tab_kanban_tasks WHERE kanban_task_id = @TaskId AND board_id = @BoardId AND is_deleted = false";
+                long count = await ExecuteScalarAsync<long>(checkQuery, cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@TaskId", tId);
+                    cmd.Parameters.AddWithValue("@BoardId", boardId);
+                }, CommandType.Text);
+                if (count == 0)
+                {
+                    throw new UnauthorizedAccessException("You do not have permission to delete this task.");
+                }
+
                 string fnQuery = "SELECT fn_manage_kanban_task(@ActionType, @TaskId)";
                 await ExecuteScalarAsync<long>(fnQuery, cmd =>
                 {
@@ -613,6 +738,13 @@ namespace SoftBook.Infrastructure.Classes
         //    }
         //    return false;
         //}
+
+        private static KanbanBoardModel MapBoardReader(NpgsqlDataReader reader) => new KanbanBoardModel
+        {
+            BoardId = Convert.ToInt64(reader["board_id"]),
+            BoardName = reader["board_name"]?.ToString() ?? "",
+            IsDefault = reader["is_default"] != DBNull.Value && Convert.ToBoolean(reader["is_default"])
+        };
 
         private static KanbanColumnModel MapColumnReader(NpgsqlDataReader reader) => new KanbanColumnModel
         {
@@ -704,6 +836,32 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task<List<KanbanChecklistItemModel>> GetChecklistItemsAsync(long taskId)
         {
+            long userId = _tenantProvider?.UserId ?? 0;
+            int companyId = _tenantProvider?.CompanyId ?? 0;
+
+            // Verify task belongs to a board owned by this user
+            string taskAccessQuery = @"
+                SELECT COUNT(*) 
+                FROM tab_kanban_tasks t
+                JOIN tab_boards b ON t.board_id = b.board_id
+                WHERE t.kanban_task_id = @TaskId 
+                  AND b.company_id = @CompanyId 
+                  AND b.owner_user_id = @UserId 
+                  AND t.is_deleted = false 
+                  AND b.is_deleted = false";
+
+            long accessCount = await ExecuteScalarAsync<long>(taskAccessQuery, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@TaskId", taskId);
+                cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+            }, CommandType.Text);
+
+            if (accessCount == 0)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access checklist items for this task.");
+            }
+
             string query = "SELECT * FROM tab_kanban_checklist_items WHERE kanban_task_id = @TaskId AND is_deleted = false ORDER BY position_order ASC, checklist_item_id ASC";
             return await ExecuteRawQueryAsync(query, cmd =>
             {
@@ -713,15 +871,46 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task<KanbanChecklistItemModel> SaveChecklistItemAsync(KanbanChecklistItemModel item)
         {
+            long userId = _tenantProvider?.UserId ?? 0;
+            int companyId = _tenantProvider?.CompanyId ?? 0;
+
+            // Verify task belongs to a board owned by this user
+            string taskAccessQuery = @"
+                SELECT COUNT(*) 
+                FROM tab_kanban_tasks t
+                JOIN tab_boards b ON t.board_id = b.board_id
+                WHERE t.kanban_task_id = @TaskId 
+                  AND b.company_id = @CompanyId 
+                  AND b.owner_user_id = @UserId 
+                  AND t.is_deleted = false 
+                  AND b.is_deleted = false";
+
+            long accessCount = await ExecuteScalarAsync<long>(taskAccessQuery, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@TaskId", item.KanbanTaskId);
+                cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+            }, CommandType.Text);
+
+            if (accessCount == 0)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to access checklist items for this task.");
+            }
+
             bool exists = false;
             if (item.ChecklistItemId > 0)
             {
-                string checkQuery = "SELECT COUNT(*) FROM tab_kanban_checklist_items WHERE checklist_item_id = @ItemId";
+                string checkQuery = "SELECT COUNT(*) FROM tab_kanban_checklist_items WHERE checklist_item_id = @ItemId AND kanban_task_id = @TaskId";
                 long count = await ExecuteScalarAsync<long>(checkQuery, cmd =>
                 {
                     cmd.Parameters.AddWithValue("@ItemId", item.ChecklistItemId);
+                    cmd.Parameters.AddWithValue("@TaskId", item.KanbanTaskId);
                 }, CommandType.Text);
                 exists = count > 0;
+                if (!exists)
+                {
+                    throw new UnauthorizedAccessException("Checklist item does not exist or does not belong to the specified task.");
+                }
             }
 
             if (exists)
@@ -783,6 +972,34 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task<bool> DeleteChecklistItemAsync(long itemId)
         {
+            long userId = _tenantProvider?.UserId ?? 0;
+            int companyId = _tenantProvider?.CompanyId ?? 0;
+
+            // Verify checklist item belongs to task on a board owned by this user
+            string checklistAccessQuery = @"
+                SELECT COUNT(*) 
+                FROM tab_kanban_checklist_items c
+                JOIN tab_kanban_tasks t ON c.kanban_task_id = t.kanban_task_id
+                JOIN tab_boards b ON t.board_id = b.board_id
+                WHERE c.checklist_item_id = @ItemId 
+                  AND b.company_id = @CompanyId 
+                  AND b.owner_user_id = @UserId 
+                  AND c.is_deleted = false 
+                  AND t.is_deleted = false 
+                  AND b.is_deleted = false";
+
+            long accessCount = await ExecuteScalarAsync<long>(checklistAccessQuery, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@ItemId", itemId);
+                cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+            }, CommandType.Text);
+
+            if (accessCount == 0)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to delete this checklist item.");
+            }
+
             string query = "UPDATE tab_kanban_checklist_items SET is_deleted = true, updated_date = CURRENT_TIMESTAMP WHERE checklist_item_id = @ItemId";
             await ExecuteNonQueryAsync(query, cmd =>
             {
@@ -793,6 +1010,32 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task<bool> DeleteChecklistGroupAsync(long taskId, string groupName)
         {
+            long userId = _tenantProvider?.UserId ?? 0;
+            int companyId = _tenantProvider?.CompanyId ?? 0;
+
+            // Verify task belongs to a board owned by this user
+            string taskAccessQuery = @"
+                SELECT COUNT(*) 
+                FROM tab_kanban_tasks t
+                JOIN tab_boards b ON t.board_id = b.board_id
+                WHERE t.kanban_task_id = @TaskId 
+                  AND b.company_id = @CompanyId 
+                  AND b.owner_user_id = @UserId 
+                  AND t.is_deleted = false 
+                  AND b.is_deleted = false";
+
+            long accessCount = await ExecuteScalarAsync<long>(taskAccessQuery, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@TaskId", taskId);
+                cmd.Parameters.AddWithValue("@CompanyId", (long)companyId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+            }, CommandType.Text);
+
+            if (accessCount == 0)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to delete checklist items for this task.");
+            }
+
             string query = "UPDATE tab_kanban_checklist_items SET is_deleted = true, updated_date = CURRENT_TIMESTAMP WHERE kanban_task_id = @TaskId AND checklist_group = @ChecklistGroup";
             await ExecuteNonQueryAsync(query, cmd =>
             {
