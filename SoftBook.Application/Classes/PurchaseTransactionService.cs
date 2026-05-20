@@ -59,12 +59,15 @@ namespace SoftBook.Application.Services.Classes
             viewModel.Header.InvoiceTotal = viewModel.Lines.Sum(l => l.Amount);
             viewModel.Header.FinalInvoiceAmount = viewModel.Header.GrandTotal;
 
-            if (!isNew)
+            // changes made by Hetak dt 20052026 - Purchase header, lines, and JV now save in one transaction.
+            return await _salePurRepository.ExecuteInTransactionAsync(async transaction =>
             {
+                if (!isNew)
+                {
                 // [MODIFIED 2026-05-06] Stable ID Implementation:
                 // We no longer soft-delete the header because changing sp_unique_code breaks payment links in tab_jv.
                 // We now:
-                // 1. Soft-delete ONLY the line items (tab_sal_pur_tran) and journal entries (tab_jv).
+                // 1. Soft-delete ONLY the line items (tab_sal_pur_tran).
                 // 2. Perform a direct UPDATE on the header row in tab_sale_pur.
                 // 3. Re-insert fresh line items and journal entries linked to the SAME sp_unique_code.
 
@@ -83,19 +86,15 @@ namespace SoftBook.Application.Services.Classes
 
                 // 1. Soft-delete OLD line items first (tab_sal_pur_tran)
                 // This ensures we can insert new lines without having duplicates under the same header ID.
-                var deleteLinesResult = await _salePurRepository.DeleteLineItemsByParentAsync(currentSpUniqueCode);
+                var deleteLinesResult = await _salePurRepository.DeleteLineItemsByParentAsync(currentSpUniqueCode, null, transaction);
                 if (!deleteLinesResult.Success) return deleteLinesResult;
 
                 // 2. Perform Direct Update on the Header (tab_sale_pur)
                 // This preserves sp_unique_code and updates modified_on/modified_by.
-                result = await _salePurRepository.UpdateAsync(viewModel.Header);
+                result = await _salePurRepository.UpdateAsync(viewModel.Header, null, transaction);
                 if (!result.Success) return result;
 
-                // 3. Delete OLD journal entries linked to this ID (tab_jv)
-                // We wipe the old accounting lines and GenerateJournalFromPurchaseAsync will create fresh ones.
-                await _journalService.DeleteJournalByGCodeAsync(currentSpUniqueCode.ToString());
-
-                // 4. Insert New Line Items using the same ID
+                // 3. Insert New Line Items using the same ID
                 foreach (var line in viewModel.Lines)
                 {
                     line.SpTranUniqueCode = 0; // force INSERT — old line PKs are invalidated
@@ -103,18 +102,21 @@ namespace SoftBook.Application.Services.Classes
                     line.CompanyId = viewModel.Header.CompanyId;
                     line.FiscalYearId = fiscalYearId;
                     line.BranchId = branchId;
-                    var insResult = await _salePurRepository.InsertLineItemAsync(line);
+                    var insResult = await _salePurRepository.InsertLineItemAsync(line, transaction);
                     if (!insResult.Success) return insResult;
                 }
             }
-            else
-            {
-                result = await _salePurRepository.InsertAsync(viewModel.Header);
+                else
+                {
+                result = await _salePurRepository.InsertWithNextInvoiceNumberAsync(viewModel.Header, null, transaction);
                 if (!result.Success) return result;
                 
                 if (result.Data is SalePur insertedHeader)
                 {
                     viewModel.Header.SpUniqueCode = insertedHeader.SpUniqueCode;
+                    viewModel.Header.InvNo = insertedHeader.InvNo;
+                    viewModel.Header.InvoiceSeries = insertedHeader.InvoiceSeries;
+                    viewModel.Header.InvoiceSeriesIncrementNumber = insertedHeader.InvoiceSeriesIncrementNumber;
                     foreach(var line in viewModel.Lines)
                     {
                         line.SpUniqueCode = insertedHeader.SpUniqueCode;
@@ -135,19 +137,21 @@ namespace SoftBook.Application.Services.Classes
                     line.CompanyId = viewModel.Header.CompanyId;
                     line.FiscalYearId = fiscalYearId;
                     line.BranchId = branchId;
-                    var insResult = await _salePurRepository.InsertLineItemAsync(line);
+                    var insResult = await _salePurRepository.InsertLineItemAsync(line, transaction);
                     if (!insResult.Success) return insResult;
                 }
             }
 
-            // Generate Accounting Entries in tab_jv (tab_jv handles its own versioning — no change needed)
-            var journalResult = await _journalService.GenerateJournalFromPurchaseAsync(viewModel.Header, viewModel.Lines);
+                // Generate Accounting Entries in tab_jv inside the same transaction.
+                // changes made by Hetak dt 20052026 - JV rows participate in this purchase transaction.
+                var journalResult = await _journalService.GenerateJournalFromPurchaseAsync(viewModel.Header, viewModel.Lines, transaction);
             if (!journalResult.Success)
             {
-                return DbResult.Failure($"Accounting Entry Error: {journalResult.Error}");
+                    return DbResult.Failure($"Accounting Entry Error: {journalResult.Error}");
             }
 
-            return DbResult.Ok(viewModel);
+                return DbResult.Ok(viewModel);
+            });
         }
 
 

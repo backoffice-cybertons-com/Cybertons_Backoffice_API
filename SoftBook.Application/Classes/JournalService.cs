@@ -605,7 +605,8 @@ namespace SoftBook.Application.Services.Classes
         //}//after adding invoice column
 
 
-        public async Task<DbResult> GenerateJournalFromSaleAsync(SalePur header, IEnumerable<SalePurTran> lines)
+        // changes made by Hetak dt 20052026 - optional transaction keeps sale header, lines, and JV atomic.
+        public async Task<DbResult> GenerateJournalFromSaleAsync(SalePur header, IEnumerable<SalePurTran> lines, IDbTransaction? transaction = null)
         {
             try
             {
@@ -665,12 +666,13 @@ namespace SoftBook.Application.Services.Classes
                 entries.Add(CreateJVEntry(header, drAcc_R, crAcc_R, Math.Abs(roundOff), "Sales", $"Round Off - Inv {header.InvNo}"));
 
                 for (int i = 0; i < entries.Count; i++) entries[i].GroupJvSrNo = i + 1;
-                return await _journalRepository.SaveJournalGroupAsync(entries, header.SpUniqueCode.ToString(), null, null);
+                return await _journalRepository.SaveJournalGroupAsync(entries, header.SpUniqueCode.ToString(), transaction, null);
             }
             catch (Exception ex) { return DbResult.Failure(ex.Message); }
         }
 
-        public async Task<DbResult> GenerateJournalFromPurchaseAsync(SalePur header, IEnumerable<SalePurTran> lines)
+        // changes made by Hetak dt 20052026 - optional transaction keeps purchase header, lines, and JV atomic.
+        public async Task<DbResult> GenerateJournalFromPurchaseAsync(SalePur header, IEnumerable<SalePurTran> lines, IDbTransaction? transaction = null)
         {
             try
             {
@@ -732,7 +734,7 @@ namespace SoftBook.Application.Services.Classes
                 entries.Add(CreateJVEntry(header, drAcc_R, crAcc_R, Math.Abs(roundOff), "Purchase", $"Round Off - Bill {header.InvNo}"));
 
                 for (int i = 0; i < entries.Count; i++) entries[i].GroupJvSrNo = i + 1;
-                return await _journalRepository.SaveJournalGroupAsync(entries, header.SpUniqueCode.ToString(), null, null);
+                return await _journalRepository.SaveJournalGroupAsync(entries, header.SpUniqueCode.ToString(), transaction, null);
             }
             catch (Exception ex) { return DbResult.Failure(ex.Message); }
         }
