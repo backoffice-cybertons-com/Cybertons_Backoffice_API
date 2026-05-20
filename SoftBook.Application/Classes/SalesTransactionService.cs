@@ -102,12 +102,15 @@ namespace SoftBook.Application.Services.Classes
                 }
             }
 
-            if (!isNew)
+            // changes made by Hetak dt 20052026 - Sales header, lines, and JV now save in one transaction.
+            return await _salePurRepository.ExecuteInTransactionAsync(async transaction =>
             {
+                if (!isNew)
+                {
                 // [MODIFIED 2026-05-06] Stable ID Implementation:
                 // We no longer soft-delete the header because changing sp_unique_code breaks payment links in tab_jv.
                 // We now:
-                // 1. Soft-delete ONLY the line items (tab_sal_pur_tran) and journal entries (tab_jv).
+                // 1. Soft-delete ONLY the line items (tab_sal_pur_tran).
                 // 2. Perform a direct UPDATE on the header row in tab_sale_pur.
                 // 3. Re-insert fresh line items and journal entries linked to the SAME sp_unique_code.
 
@@ -126,19 +129,15 @@ namespace SoftBook.Application.Services.Classes
 
                 // 1. Soft-delete OLD line items first (tab_sal_pur_tran)
                 // This ensures we can insert new lines without having duplicates under the same header ID.
-                var deleteLinesResult = await _salePurRepository.DeleteLineItemsByParentAsync(currentSpUniqueCode, userId);
+                var deleteLinesResult = await _salePurRepository.DeleteLineItemsByParentAsync(currentSpUniqueCode, userId, transaction);
                 if (!deleteLinesResult.Success) return deleteLinesResult;
 
                 // 2. Perform Direct Update on the Header (tab_sale_pur)
                 // This preserves sp_unique_code and updates modified_on/modified_by.
-                result = await _salePurRepository.UpdateAsync(viewModel.Header, userId);
+                result = await _salePurRepository.UpdateAsync(viewModel.Header, userId, transaction);
                 if (!result.Success) return result;
 
-                // 3. Delete OLD journal entries linked to this ID (tab_jv)
-                // We wipe the old accounting lines and GenerateJournalFromSaleAsync will create fresh ones.
-                await _journalService.DeleteJournalByGCodeAsync(currentSpUniqueCode.ToString());
-
-                // 4. Insert New Line Items using the same ID
+                // 3. Insert New Line Items using the same ID
                 foreach (var line in viewModel.Lines)
                 {
                     line.SpTranUniqueCode = 0; // force INSERT — old line PKs are invalidated
@@ -146,13 +145,13 @@ namespace SoftBook.Application.Services.Classes
                     line.CompanyId = viewModel.Header.CompanyId;
                     line.FiscalYearId = fiscalYearId;
                     line.BranchId = branchId;
-                    var insResult = await _salePurRepository.InsertLineItemAsync(line);
+                    var insResult = await _salePurRepository.InsertLineItemAsync(line, transaction);
                     if (!insResult.Success) return insResult;
                 }
-            }
-            else
-            {
-                result = await _salePurRepository.InsertWithNextInvoiceNumberAsync(viewModel.Header, userId);
+                }
+                else
+                {
+                result = await _salePurRepository.InsertWithNextInvoiceNumberAsync(viewModel.Header, userId, transaction);
                 if (!result.Success) return result;
                 
                 if (result.Data is SalePur insertedHeader)
@@ -181,18 +180,19 @@ namespace SoftBook.Application.Services.Classes
                     line.CompanyId = viewModel.Header.CompanyId;
                     line.FiscalYearId = fiscalYearId;
                     line.BranchId = branchId;
-                    var insResult = await _salePurRepository.InsertLineItemAsync(line);
+                    var insResult = await _salePurRepository.InsertLineItemAsync(line, transaction);
                     if (!insResult.Success) return insResult;
                 }
             }
 
-            var journalResult = await _journalService.GenerateJournalFromSaleAsync(viewModel.Header, viewModel.Lines);
-            if (!journalResult.Success)
-            {
-                return DbResult.Failure($"Accounting Entry Error: {journalResult.Error}");
-            }
+                var journalResult = await _journalService.GenerateJournalFromSaleAsync(viewModel.Header, viewModel.Lines, transaction);
+                if (!journalResult.Success)
+                {
+                    return DbResult.Failure($"Accounting Entry Error: {journalResult.Error}");
+                }
 
-            return DbResult.Ok(viewModel);
+                return DbResult.Ok(viewModel);
+            });
         }
 
 

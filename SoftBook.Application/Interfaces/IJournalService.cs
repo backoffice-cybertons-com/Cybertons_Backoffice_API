@@ -8,8 +8,9 @@ namespace SoftBook.Application.Services.Interfaces
 {
     public interface IJournalService
     {
-        Task<DbResult> GenerateJournalFromSaleAsync(SalePur header, IEnumerable<SalePurTran> lines);
-        Task<DbResult> GenerateJournalFromPurchaseAsync(SalePur header, IEnumerable<SalePurTran> lines);
+        // changes made by Hetak dt 20052026 - journal rows can participate in the sale/purchase transaction.
+        Task<DbResult> GenerateJournalFromSaleAsync(SalePur header, IEnumerable<SalePurTran> lines, IDbTransaction? transaction = null);
+        Task<DbResult> GenerateJournalFromPurchaseAsync(SalePur header, IEnumerable<SalePurTran> lines, IDbTransaction? transaction = null);
         Task<DbResult> GenerateJournalFromPayRecAsync(IEnumerable<PayRec> allocations, IDbTransaction? transaction = null);
         Task<DbResult> DeleteJournalByGCodeAsync(string gCode, int? userId = null);
         Task<DbResult> SaveDirectJournalAsync(IEnumerable<JournalVoucher> entries, int? userId = null);

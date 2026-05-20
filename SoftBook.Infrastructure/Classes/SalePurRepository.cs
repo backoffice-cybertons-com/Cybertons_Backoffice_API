@@ -82,16 +82,47 @@ namespace SoftBook.Infrastructure.Classes
             return header;
         }
 
-        public async Task<DbResult> InsertAsync(SalePur entity, int? userId = null)
+        // changes made by Hetak dt 20052026 - shared transaction wrapper for sale/purchase header, lines, and JV.
+        public async Task<DbResult> ExecuteInTransactionAsync(Func<IDbTransaction, Task<DbResult>> operation)
+        {
+            await using var connection = new NpgsqlConnection(GetConnectionString());
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                var result = await operation(transaction);
+                if (!result.Success)
+                {
+                    await transaction.RollbackAsync();
+                    return result;
+                }
+
+                await transaction.CommitAsync();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return HandleException(ex);
+            }
+        }
+
+        public async Task<DbResult> InsertAsync(SalePur entity, int? userId = null, IDbTransaction? transaction = null)
         {
             try
             {
-                var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
+                void BuildParameters(NpgsqlCommand cmd)
                 {
                     cmd.Parameters.AddWithValue("p_action", "INSERT");
                     AddSalePurParameters(cmd, entity);
                     cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
-                }, MapSalePur);
+                }
+
+                var result = transaction is NpgsqlTransaction npgsqlTransaction
+                    ? await ExecuteSingleReaderAsync("public.fn_sale_pur", BuildParameters, MapSalePur, npgsqlTransaction)
+                    : await ExecuteSingleReaderAsync("public.fn_sale_pur", BuildParameters, MapSalePur);
+
                 return DbResult.Ok(result);
             }
             catch (Exception ex)
@@ -100,29 +131,51 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
-        public async Task<DbResult> InsertWithNextInvoiceNumberAsync(SalePur entity, int? userId = null)
+        // changes made by Hetak dt 20052026 - invoice number advisory lock stays inside the same transaction.
+        public async Task<DbResult> InsertWithNextInvoiceNumberAsync(SalePur entity, int? userId = null, IDbTransaction? transaction = null)
         {
+            if (transaction is NpgsqlTransaction externalTransaction)
+            {
+                try
+                {
+                    await AssignNextInvoiceNumberAsync(externalTransaction.Connection!, externalTransaction, entity);
+
+                    var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
+                    {
+                        cmd.Parameters.AddWithValue("p_action", "INSERT");
+                        AddSalePurParameters(cmd, entity);
+                        cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
+                    }, MapSalePur, externalTransaction);
+
+                    return DbResult.Ok(result);
+                }
+                catch (Exception ex)
+                {
+                    return HandleException(ex);
+                }
+            }
+
             await using var connection = new NpgsqlConnection(GetConnectionString());
             await connection.OpenAsync();
-            await using var transaction = await connection.BeginTransactionAsync();
+            await using var localTransaction = await connection.BeginTransactionAsync();
 
             try
             {
-                await AssignNextInvoiceNumberAsync(connection, transaction, entity);
+                await AssignNextInvoiceNumberAsync(connection, localTransaction, entity);
 
                 var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
                 {
                     cmd.Parameters.AddWithValue("p_action", "INSERT");
                     AddSalePurParameters(cmd, entity);
                     cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
-                }, MapSalePur, transaction);
+                }, MapSalePur, localTransaction);
 
-                await transaction.CommitAsync();
+                await localTransaction.CommitAsync();
                 return DbResult.Ok(result);
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                await localTransaction.RollbackAsync();
                 return HandleException(ex);
             }
         }
@@ -167,30 +220,33 @@ namespace SoftBook.Infrastructure.Classes
 
         private async Task<(string Prefix, int Width)> GetInvoiceNumberFormatAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, SalePur entity)
         {
-            var format = GetInvoiceNumberFormat(entity.InvNo, entity.InvoiceSeries);
-
-            if (!string.IsNullOrWhiteSpace(format.Prefix) || !string.IsNullOrWhiteSpace(entity.InvNo))
-            {
-                return format;
-            }
-
             await using var command = new NpgsqlCommand(@"
-                SELECT inv_no
-                FROM public.tab_sale_pur
-                WHERE company_id = @company_id
-                  AND inv_type = @inv_type
-                  AND COALESCE(delete_flag, false) = false
-                  AND inv_no ~ '^(.*?)([0-9]+)$'
-                  AND (@fiscal_year_id IS NULL OR fiscal_year_id = @fiscal_year_id)
-                ORDER BY created_on DESC NULLS LAST, sp_unique_code DESC
+                SELECT parts[1] AS prefix, LENGTH(parts[2]) AS width
+                FROM (
+                    SELECT regexp_match(inv_no, '^(.*?)([0-9]+)$') AS parts
+                    FROM public.tab_sale_pur
+                    WHERE company_id = @company_id
+                      AND inv_type = @inv_type
+                      AND COALESCE(delete_flag, false) = false
+                      AND inv_no ~ '^(.*?)([0-9]+)$'
+                      AND (@fiscal_year_id IS NULL OR fiscal_year_id = @fiscal_year_id)
+                ) parsed
+                WHERE parts IS NOT NULL
+                GROUP BY parts[1], LENGTH(parts[2])
+                ORDER BY COUNT(*) DESC, MAX((parts[2])::integer) DESC
                 LIMIT 1", connection, transaction);
 
             command.Parameters.Add("company_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = entity.CompanyId;
             command.Parameters.Add("inv_type", NpgsqlTypes.NpgsqlDbType.Varchar).Value = (object?)entity.InvType ?? DBNull.Value;
             command.Parameters.Add("fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.FiscalYearId ?? DBNull.Value;
 
-            var latestInvoiceNumber = (await command.ExecuteScalarAsync())?.ToString();
-            return GetInvoiceNumberFormat(latestInvoiceNumber, entity.InvoiceSeries);
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return (reader.GetString(0), reader.GetInt32(1));
+            }
+
+            return GetInvoiceNumberFormat(entity.InvNo, entity.InvoiceSeries);
         }
 
         private static (string Prefix, int Width) GetInvoiceNumberFormat(string? invoiceNumber, string? invoiceSeries)
@@ -207,16 +263,21 @@ namespace SoftBook.Infrastructure.Classes
             return (prefix, 1);
         }
 
-        public async Task<DbResult> UpdateAsync(SalePur entity, int? userId = null)
+        public async Task<DbResult> UpdateAsync(SalePur entity, int? userId = null, IDbTransaction? transaction = null)
         {
             try
             {
-                var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
+                void BuildParameters(NpgsqlCommand cmd)
                 {
                     cmd.Parameters.AddWithValue("p_action", "UPDATE");
                     AddSalePurParameters(cmd, entity);
                     cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
-                }, MapSalePur);
+                }
+
+                var result = transaction is NpgsqlTransaction npgsqlTransaction
+                    ? await ExecuteSingleReaderAsync("public.fn_sale_pur", BuildParameters, MapSalePur, npgsqlTransaction)
+                    : await ExecuteSingleReaderAsync("public.fn_sale_pur", BuildParameters, MapSalePur);
+
                 return DbResult.Ok(result);
             }
             catch (Exception ex)
@@ -254,15 +315,20 @@ namespace SoftBook.Infrastructure.Classes
             }, MapSalePurTran);
         }
 
-        public async Task<DbResult> InsertLineItemAsync(SalePurTran entity)
+        public async Task<DbResult> InsertLineItemAsync(SalePurTran entity, IDbTransaction? transaction = null)
         {
             try
             {
-                var result = await ExecuteSingleReaderAsync("public.fn_sal_pur_tran", cmd =>
+                void BuildParameters(NpgsqlCommand cmd)
                 {
                     cmd.Parameters.AddWithValue("p_action", "INSERT");
                     AddSalePurTranParameters(cmd, entity);
-                }, MapSalePurTran);
+                }
+
+                var result = transaction is NpgsqlTransaction npgsqlTransaction
+                    ? await ExecuteSingleReaderAsync("public.fn_sal_pur_tran", BuildParameters, MapSalePurTran, npgsqlTransaction)
+                    : await ExecuteSingleReaderAsync("public.fn_sal_pur_tran", BuildParameters, MapSalePurTran);
+
                 return DbResult.Ok(result);
             }
             catch (Exception ex)
@@ -308,16 +374,26 @@ namespace SoftBook.Infrastructure.Classes
         }
 
         // [ADDED 2026-05-06] Implementation for soft-deleting all lines of an invoice
-        public async Task<DbResult> DeleteLineItemsByParentAsync(int spUniqueCode, int? userId = null)
+        public async Task<DbResult> DeleteLineItemsByParentAsync(int spUniqueCode, int? userId = null, IDbTransaction? transaction = null)
         {
             try
             {
-                await ExecuteNonQueryAsync("public.fn_sal_pur_tran", cmd =>
+                void BuildParameters(NpgsqlCommand cmd)
                 {
                     cmd.Parameters.AddWithValue("p_action", "DELETE_BY_PARENT");
                     cmd.Parameters.AddWithValue("p_sp_unique_code", spUniqueCode);
                     cmd.Parameters.AddWithValue("p_deleted_by", userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
-                });
+                }
+
+                if (transaction is NpgsqlTransaction npgsqlTransaction)
+                {
+                    await ExecuteNonQueryAsync("public.fn_sal_pur_tran", BuildParameters, npgsqlTransaction);
+                }
+                else
+                {
+                    await ExecuteNonQueryAsync("public.fn_sal_pur_tran", BuildParameters);
+                }
+
                 return DbResult.Ok();
             }
             catch (Exception ex)
