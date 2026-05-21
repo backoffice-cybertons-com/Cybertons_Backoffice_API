@@ -108,7 +108,8 @@ namespace SoftBook.Application.Services.Classes
             }
                 else
                 {
-                result = await _salePurRepository.InsertWithNextInvoiceNumberAsync(viewModel.Header, null, transaction);
+                // Purchase bill numbers are vendor-provided, so keep the user-entered bill number.
+                result = await _salePurRepository.InsertAsync(viewModel.Header, null, transaction);
                 if (!result.Success) return result;
                 
                 if (result.Data is SalePur insertedHeader)
