@@ -372,6 +372,18 @@ namespace SoftBook.API.Controllers
             return Ok(result);
         }
 
+        [HttpGet("balance-sheet")]
+        public async Task<IActionResult> GetBalanceSheet([FromQuery] int companyId, [FromQuery] DateTime date)
+        {
+            if (companyId == 0)
+            {
+                return BadRequest("Company context not found.");
+            }
+
+            var result = await _reportService.GetBalanceSheetReportAsync(companyId, date);
+            return Ok(result);
+        }
+
 
 
         //by diya  4/24
