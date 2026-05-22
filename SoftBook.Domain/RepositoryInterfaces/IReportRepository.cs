@@ -43,6 +43,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
         //Trial balance  code added by Hetak Modi23042026
         //=======================================================================================================================================
         Task<List<TrialBalanceDTO>> GetTrialBalance(int companyId, DateTime date);
+        Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate);
 
 
 
