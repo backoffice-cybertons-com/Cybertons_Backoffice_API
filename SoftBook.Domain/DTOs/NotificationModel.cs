@@ -15,5 +15,7 @@ namespace SoftBook.Domain.DTOs
         public DateTime CreatedDate { get; set; }
         public bool IsDeleted { get; set; }
         public bool ToastShown { get; set; }
+        public int NotificationCount { get; set; } = 1;
+        public long? SenderUserId { get; set; }
     }
 }
