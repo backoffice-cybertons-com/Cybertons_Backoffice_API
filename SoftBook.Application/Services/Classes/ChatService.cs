@@ -10,10 +10,14 @@ namespace SoftBook.Application.Services.Classes
     public class ChatService : IChatService
     {
         private readonly IChatRepository _chatRepository;
+        private readonly INotificationService _notificationService;
 
-        public ChatService(IChatRepository chatRepository)
+        public ChatService(
+            IChatRepository chatRepository,
+            INotificationService notificationService)
         {
             _chatRepository = chatRepository;
+            _notificationService = notificationService;
         }
 
         public async Task<Message> SendMessageAsync(SendMessageDto dto)
@@ -32,10 +36,19 @@ namespace SoftBook.Application.Services.Classes
 
                 ReplyMessageId = dto.ReplyMessageId,
 
-                CreatedBy = dto.SenderUserId
+                CreatedBy = dto.SenderUserId,
+                FileLink = dto.FileLink,
             };
 
-            return await _chatRepository.SendMessageAsync(message);
+            var saved = await _chatRepository.SendMessageAsync(message);
+
+            await _notificationService.CreateOrUpdateChatNotificationAsync(
+                dto.CompanyId,
+                dto.ReceiverUserId,
+                dto.SenderUserId,
+                saved.MessageId);
+
+            return saved;
         }
 
         public async Task<List<Message>> GetConversationAsync(
@@ -54,6 +67,34 @@ namespace SoftBook.Application.Services.Classes
             await _chatRepository.MarkMessagesAsReadAsync(
                 senderId,
                 receiverId);
+
+            var companyId = await _chatRepository.GetCompanyIdForConversationAsync(senderId, receiverId);
+            if (companyId.HasValue)
+            {
+                await _notificationService.MarkChatNotificationsAsReadAsync(
+                    companyId.Value,
+                    receiverId,
+                    senderId);
+            }
+        }
+
+        public async Task<ChatDeleteResult> DeleteMessageAsync(long messageId, long currentUserId)
+        {
+            var message = await _chatRepository.GetMessageByIdAsync(messageId);
+
+            if (message == null)
+            {
+                return ChatDeleteResult.NotFound;
+            }
+
+            if (message.SenderUserId != currentUserId)
+            {
+                return ChatDeleteResult.NotAllowed;
+            }
+
+            var deleted = await _chatRepository.DeleteMessageAsync(messageId, currentUserId);
+
+            return deleted ? ChatDeleteResult.Deleted : ChatDeleteResult.NotFound;
         }
 
         public async Task<List<ChatListModel>> GetChatListAsync(
@@ -63,6 +104,14 @@ namespace SoftBook.Application.Services.Classes
             return await _chatRepository.GetChatListAsync(
                 userId,
                 companyId);
+        }
+
+        public async Task<List<ChatAttachmentDto>>GetChatAttachmentsAsync(
+    long senderUserId,
+    long receiverUserId,
+    long companyId)
+        {
+            return await _chatRepository.GetChatAttachmentsAsync(senderUserId, receiverUserId, companyId);
         }
     }
 }

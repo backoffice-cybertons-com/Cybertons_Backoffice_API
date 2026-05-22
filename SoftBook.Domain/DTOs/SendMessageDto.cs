@@ -17,5 +17,6 @@ namespace SoftBook.Domain.DTOs
         public string MessageType { get; set; } = "text";
 
         public long? ReplyMessageId { get; set; }
+        public string? FileLink { get; set; }
     }
 }

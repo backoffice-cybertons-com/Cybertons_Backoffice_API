@@ -30,7 +30,13 @@ namespace SoftBook.Infrastructure.Classes
             IsRead = Convert.ToBoolean(reader["is_read"]),
             CreatedDate = Convert.ToDateTime(reader["created_date"]),
             IsDeleted = Convert.ToBoolean(reader["is_deleted"]),
-            ToastShown = Convert.ToBoolean(reader["toast_shown"])
+            ToastShown = Convert.ToBoolean(reader["toast_shown"]),
+            NotificationCount = reader["notification_count"] == DBNull.Value
+                ? 1
+                : Convert.ToInt32(reader["notification_count"]),
+            SenderUserId = reader["sender_user_id"] == DBNull.Value
+                ? null
+                : (long?)Convert.ToInt64(reader["sender_user_id"])
         };
 
         public async Task<List<NotificationModel>> GetUnreadNotifications(long companyId, long userId)
@@ -41,7 +47,6 @@ namespace SoftBook.Infrastructure.Classes
                 AND user_id = @UserId 
                 AND is_read = false 
                 AND created_date >= NOW() - INTERVAL '3 days'
-
                 AND is_deleted = false
                 ORDER BY created_date DESC";
 
@@ -60,13 +65,15 @@ namespace SoftBook.Infrastructure.Classes
             string query = @"
                 UPDATE tab_notifications 
                 SET is_read = true 
-                WHERE notification_id = @NotificationId";
+                WHERE notification_id = @NotificationId
+                AND company_id = @CompanyId";
 
             await ExecuteNonQueryAsync(
                 query,
                 cmd =>
                 {
                     cmd.Parameters.AddWithValue("@NotificationId", notificationId);
+                    cmd.Parameters.AddWithValue("@CompanyId", companyId);
                 },
                 CommandType.Text);
 
@@ -95,6 +102,7 @@ namespace SoftBook.Infrastructure.Classes
                 },
                 MapReader);
         }
+
         public async Task<long> AddNotification(NotificationModel notification)
         {
             string query = @"
@@ -109,7 +117,9 @@ namespace SoftBook.Infrastructure.Classes
                     created_date, 
                     is_read, 
                     is_deleted,
-                    toast_shown
+                    toast_shown,
+                    notification_count,
+                    sender_user_id
                 ) 
                 VALUES 
                 (
@@ -122,7 +132,9 @@ namespace SoftBook.Infrastructure.Classes
                     NOW(), 
                     false, 
                     false,
-                    false
+                    false,
+                    @NotificationCount,
+                    @SenderUserId
                 ) 
                 RETURNING notification_id";
 
@@ -136,6 +148,8 @@ namespace SoftBook.Infrastructure.Classes
                     cmd.Parameters.AddWithValue("@Message", notification.Message ?? "");
                     cmd.Parameters.AddWithValue("@ReferenceType", notification.ReferenceType ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@ReferenceId", notification.ReferenceId ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@NotificationCount", notification.NotificationCount > 0 ? notification.NotificationCount : 1);
+                    cmd.Parameters.AddWithValue("@SenderUserId", notification.SenderUserId ?? (object)DBNull.Value);
                 },
                 CommandType.Text);
         }
@@ -145,6 +159,63 @@ namespace SoftBook.Infrastructure.Classes
             string query = @"
                 UPDATE tab_notifications 
                 SET toast_shown = true 
+                WHERE notification_id = @NotificationId
+                AND company_id = @CompanyId";
+
+            await ExecuteNonQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@NotificationId", notificationId);
+                    cmd.Parameters.AddWithValue("@CompanyId", companyId);
+                },
+                CommandType.Text);
+
+            return true;
+        }
+
+        public async Task<NotificationModel?> GetUnreadChatNotificationAsync(
+            long companyId,
+            long receiverUserId,
+            long senderUserId)
+        {
+            string query = @"
+                SELECT * FROM tab_notifications
+                WHERE company_id = @CompanyId
+                AND user_id = @ReceiverUserId
+                AND sender_user_id = @SenderUserId
+                AND reference_type = 'CHAT'
+                AND is_read = false
+                AND is_deleted = false
+                LIMIT 1";
+
+            var results = await ExecuteRawQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@CompanyId", companyId);
+                    cmd.Parameters.AddWithValue("@ReceiverUserId", receiverUserId);
+                    cmd.Parameters.AddWithValue("@SenderUserId", senderUserId);
+                },
+                MapReader);
+
+            return results.FirstOrDefault();
+        }
+
+        public async Task UpdateChatNotificationAsync(
+            long notificationId,
+            string message,
+            long referenceId,
+            int notificationCount)
+        {
+            string query = @"
+                UPDATE tab_notifications
+                SET
+                    notification_count = @NotificationCount,
+                    message = @Message,
+                    reference_id = @ReferenceId,
+                    created_date = NOW(),
+                    toast_shown = false
                 WHERE notification_id = @NotificationId";
 
             await ExecuteNonQueryAsync(
@@ -152,10 +223,51 @@ namespace SoftBook.Infrastructure.Classes
                 cmd =>
                 {
                     cmd.Parameters.AddWithValue("@NotificationId", notificationId);
+                    cmd.Parameters.AddWithValue("@Message", message ?? "");
+                    cmd.Parameters.AddWithValue("@ReferenceId", referenceId);
+                    cmd.Parameters.AddWithValue("@NotificationCount", notificationCount);
                 },
                 CommandType.Text);
+        }
 
-            return true;
+        public async Task<string?> GetUserDisplayNameAsync(long userId)
+        {
+            string query = @"
+                SELECT COALESCE(NULLIF(TRIM(full_name), ''), username) AS display_name
+                FROM tab_user_master
+                WHERE user_id = @UserId
+                LIMIT 1";
+
+            return await ExecuteScalarAsync<string?>(
+                query,
+                cmd => cmd.Parameters.AddWithValue("@UserId", userId),
+                CommandType.Text);
+        }
+
+        public async Task MarkChatNotificationsAsReadAsync(
+            long companyId,
+            long receiverUserId,
+            long senderUserId)
+        {
+            string query = @"
+                UPDATE tab_notifications
+                SET is_read = true
+                WHERE company_id = @CompanyId
+                AND user_id = @ReceiverUserId
+                AND sender_user_id = @SenderUserId
+                AND reference_type = 'CHAT'
+                AND is_read = false
+                AND is_deleted = false";
+
+            await ExecuteNonQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@CompanyId", companyId);
+                    cmd.Parameters.AddWithValue("@ReceiverUserId", receiverUserId);
+                    cmd.Parameters.AddWithValue("@SenderUserId", senderUserId);
+                },
+                CommandType.Text);
         }
     }
 }
