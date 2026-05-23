@@ -557,5 +557,37 @@ namespace SoftBook.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+
+
+        [HttpGet("daily-outstanding-report")]
+        public async Task<IActionResult> GetDailyOutstandingReport(
+    [FromQuery] int companyId,
+    [FromQuery] string? fromDate,
+    [FromQuery] string? toDate,
+    [FromQuery] int? partyId)
+        {
+            try
+            {
+                if (companyId == 0)
+                {
+                    Console.WriteLine("[ReportController] Warning: CompanyId is 0. Returning BadRequest.");
+                    return BadRequest("Company context not found.");
+                }
+
+                var report = await _reportService.GetDailyOutstandingReportAsync(
+                    companyId,
+                    fromDate,
+                    toDate,
+                    partyId
+                );
+
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }
