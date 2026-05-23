@@ -540,15 +540,16 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task<bool> DeleteMessageAsync(long messageId, long senderUserId)
         {
+            // Direct UPDATE: reliable on tenant DBs (same approach as SendMessageAsync).
             string query = @"
-                SELECT * FROM fn_chat_actions(
-                    p_action_type       => 'DELETE_MESSAGE',
-                    p_message_id        => @MessageId,
-                    p_sender_user_id    => @SenderUserId
-                );
+                UPDATE tab_messages
+                SET is_deleted = true, updated_date = NOW()
+                WHERE message_id = @MessageId
+                    AND sender_user_id = @SenderUserId
+                    AND is_deleted = false
+                RETURNING *;
             ";
 
-            // Function returns the deleted row if successful, empty if not found/unauthorized
             var result = await ExecuteRawQueryAsync(query, cmd =>
             {
                 cmd.Parameters.AddWithValue("@MessageId", messageId);
