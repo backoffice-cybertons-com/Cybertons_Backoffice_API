@@ -74,5 +74,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
         //by diya 05-23-2026
         Task<IEnumerable<DailyOutstandingDto>> GetDailyOutstandingReportAsync(int companyId, string fromDate, string toDate, int? partyId);
 
+        Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(long companyId, DateTime fromDate, DateTime toDate, int? partyId);
+
     }
 }

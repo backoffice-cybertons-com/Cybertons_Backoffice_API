@@ -118,6 +118,11 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetDailyOutstandingReportAsync(companyId, fromDate, toDate, partyId);
         }
 
+        public async Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(long companyId, DateTime fromDate, DateTime toDate,int? partyId)
+        {
+            return await _reportRepository.GetCalendarSummaryReportAsync(companyId, fromDate, toDate, partyId);
+        }
+
         public async Task<IEnumerable<SalePurchaseRegisterDatewiseComparisonDTO>> GetSalePurchaseRegisterDatewiseComparisonAsync(int companyId, string? where, string compareMode)
         {
             return await _reportRepository.GetSalePurchaseRegisterDatewiseComparisonAsync(companyId, where, compareMode);

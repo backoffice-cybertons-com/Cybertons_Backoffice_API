@@ -1496,6 +1496,84 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+        public async Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(
+            long companyId,
+            DateTime fromDate,
+            DateTime toDate,
+            int? partyId)
+        {
+            try
+            {
+                var rows = await ExecuteReaderAsync(
+                    @"SELECT *
+                      FROM fn_calendar_summary_report(@p_company_id, @p_from_date, @p_to_date, @p_party_id)
+                      ORDER BY report_date",
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Bigint)
+                            {
+                                Value = companyId
+                            });
+
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date)
+                            {
+                                Value = fromDate.Date
+                            });
+
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date)
+                            {
+                                Value = toDate.Date
+                            });
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                            {
+                                Value = (object?)partyId ?? DBNull.Value
+                            });
+                    },
+                    reader => new CalendarSummaryDto
+                    {
+                        ReportDate = SafeGetDateTime(reader, "report_date") ?? DateTime.MinValue,
+                        TotalSale = SafeGetDecimal(reader, "total_sale"),
+                        TotalReceipt = SafeGetDecimal(reader, "total_receipt"),
+                        TotalOs = SafeGetDecimal(reader, "total_os"),
+                        AvgTerms = SafeGetDecimal(reader, "avg_terms"),
+                    },
+                    CommandType.Text);
+
+                return rows;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetCalendarSummaryReportAsync:");
+                Console.WriteLine($"CompanyId: {companyId}");
+                Console.WriteLine($"FromDate: {fromDate:yyyy-MM-dd}");
+                Console.WriteLine($"ToDate: {toDate:yyyy-MM-dd}");
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
+
+        private static decimal SafeGetDecimal(NpgsqlDataReader reader, string columnName, decimal defaultValue = 0m)
+        {
+            try
+            {
+                int ordinal = reader.GetOrdinal(columnName);
+                if (reader.IsDBNull(ordinal))
+                {
+                    return defaultValue;
+                }
+
+                return Convert.ToDecimal(reader.GetValue(ordinal));
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return defaultValue;
+            }
+        }
+
     }
 }
 

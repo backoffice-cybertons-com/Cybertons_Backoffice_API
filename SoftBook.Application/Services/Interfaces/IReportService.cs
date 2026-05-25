@@ -68,5 +68,7 @@ namespace SoftBook.Application.Services.Interfaces
         Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where);
 
         Task<IEnumerable<DailyOutstandingDto>> GetDailyOutstandingReportAsync(int companyId, string fromDate, string toDate, int? partyId);
+
+        Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(long companyId, DateTime fromDate, DateTime toDate,int? partyId);
     }
 }
