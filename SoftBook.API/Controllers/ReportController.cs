@@ -1,4 +1,4 @@
-//using System;
+    //using System;
 //using System.Threading.Tasks;
 //using Microsoft.AspNetCore.Authorization;
 //using Microsoft.AspNetCore.Mvc;
@@ -563,6 +563,90 @@ namespace SoftBook.API.Controllers
             {
                 var result = await _reportService.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate);
                 return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+
+
+        [HttpGet("daily-outstanding-report")]
+        public async Task<IActionResult> GetDailyOutstandingReport(
+    [FromQuery] int companyId,
+    [FromQuery] string? fromDate,
+    [FromQuery] string? toDate,
+    [FromQuery] int? partyId)
+        {
+            try
+            {
+                if (companyId == 0)
+                {
+                    Console.WriteLine("[ReportController] Warning: CompanyId is 0. Returning BadRequest.");
+                    return BadRequest("Company context not found.");
+                }
+
+                var report = await _reportService.GetDailyOutstandingReportAsync(
+                    companyId,
+                    fromDate,
+                    toDate,
+                    partyId
+                );
+
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("calendar-summary")]
+        public async Task<IActionResult> GetCalendarSummary(
+            [FromQuery(Name = "company_id")] long companyId,
+            [FromQuery(Name = "from_date")] string? fromDate,
+            [FromQuery(Name = "to_date")] string? toDate,
+            [FromQuery(Name = "party_id")] int? partyId)
+        {
+            try
+            {
+                if (companyId <= 0)
+                {
+                    return BadRequest(new { message = "company_id is required and must be greater than 0." });
+                }
+
+                if (string.IsNullOrWhiteSpace(fromDate) || string.IsNullOrWhiteSpace(toDate))
+                {
+                    return BadRequest(new { message = "from_date and to_date are required (yyyy-MM-dd)." });
+                }
+
+                if (!DateTime.TryParse(fromDate, out var parsedFrom))
+                {
+                    return BadRequest(new { message = "Invalid from_date. Use yyyy-MM-dd format." });
+                }
+
+                if (!DateTime.TryParse(toDate, out var parsedTo))
+                {
+                    return BadRequest(new { message = "Invalid to_date. Use yyyy-MM-dd format." });
+                }
+
+                parsedFrom = parsedFrom.Date;
+                parsedTo = parsedTo.Date;
+
+                if (parsedFrom > parsedTo)
+                {
+                    return BadRequest(new { message = "from_date cannot be after to_date." });
+                }
+
+                var dayCount = (parsedTo - parsedFrom).Days + 1;
+                if (dayCount > 93)
+                {
+                    return BadRequest(new { message = "Date range cannot exceed 93 days for calendar summary." });
+                }
+
+                var report = await _reportService.GetCalendarSummaryReportAsync(companyId, parsedFrom, parsedTo, partyId);
+                return Ok(report);
             }
             catch (Exception ex)
             {

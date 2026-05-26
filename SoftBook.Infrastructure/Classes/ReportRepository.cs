@@ -1611,6 +1611,164 @@ ORDER BY
                 throw;
             }
         }
+
+
+        public async Task<IEnumerable<DailyOutstandingDto>> GetDailyOutstandingReportAsync(
+    int companyId,
+    string fromDate,
+    string toDate,
+    int? partyId)
+        {
+            try
+            {
+                return await ExecuteReaderAsync(
+                    "SELECT * FROM fn_daily_outstanding_report(@p_company_id,@p_from_date,@p_to_date,@p_party_id)",
+
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                            {
+                                Value = companyId
+                            });
+
+
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date)
+                            {
+                                Value = !string.IsNullOrWhiteSpace(fromDate)
+                                            ? DateTime.Parse(fromDate).Date
+                                            : DateTime.Today.Date
+                            });
+
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date)
+                            {
+                                Value = !string.IsNullOrWhiteSpace(toDate)
+                                            ? DateTime.Parse(toDate).Date
+                                            : DateTime.Today.Date
+                            });
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                            {
+                                Value = (object?)partyId ?? DBNull.Value
+                            });
+                    },
+
+                    reader =>
+                    {
+                        return new DailyOutstandingDto
+                        {
+                            PartyId = reader.IsDBNull(reader.GetOrdinal("party_id"))
+                                ? 0
+                                : Convert.ToInt32(reader["party_id"]),
+
+                            PartyName = reader["display_name"]?.ToString(),
+
+                            ReportDate = reader.IsDBNull(reader.GetOrdinal("report_date"))
+                                ? DateTime.MinValue
+                                : Convert.ToDateTime(reader["report_date"]),
+
+                            Outstanding = reader.IsDBNull(reader.GetOrdinal("outstanding"))
+                                ? 0
+                                : Convert.ToDecimal(reader["outstanding"])
+                        };
+                    },
+
+                    CommandType.Text
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetDailyOutstandingReportAsync:");
+                Console.WriteLine($"CompanyId: {companyId}");
+                Console.WriteLine($"PartyId: {partyId}");
+                Console.WriteLine($"FromDate: {fromDate}");
+                Console.WriteLine($"ToDate: {toDate}");
+                Console.WriteLine($"Error: {ex.Message}");
+
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(
+            long companyId,
+            DateTime fromDate,
+            DateTime toDate,
+            int? partyId)
+        {
+            try
+            {
+                var rows = await ExecuteReaderAsync(
+                    @"SELECT *
+                      FROM fn_calendar_summary_report(@p_company_id, @p_from_date, @p_to_date, @p_party_id)
+                      ORDER BY report_date",
+                    cmd =>
+                    {
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Bigint)
+                            {
+                                Value = companyId
+                            });
+
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date)
+                            {
+                                Value = fromDate.Date
+                            });
+
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date)
+                            {
+                                Value = toDate.Date
+                            });
+                        cmd.Parameters.Add(
+                            new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                            {
+                                Value = (object?)partyId ?? DBNull.Value
+                            });
+                    },
+                    reader => new CalendarSummaryDto
+                    {
+                        ReportDate = SafeGetDateTime(reader, "report_date") ?? DateTime.MinValue,
+                        TotalSale = SafeGetDecimal(reader, "total_sale"),
+                        TotalReceipt = SafeGetDecimal(reader, "total_receipt"),
+                        TotalOs = SafeGetDecimal(reader, "total_os"),
+                        AvgTerms = SafeGetDecimal(reader, "avg_terms"),
+                    },
+                    CommandType.Text);
+
+                return rows;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in GetCalendarSummaryReportAsync:");
+                Console.WriteLine($"CompanyId: {companyId}");
+                Console.WriteLine($"FromDate: {fromDate:yyyy-MM-dd}");
+                Console.WriteLine($"ToDate: {toDate:yyyy-MM-dd}");
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
+
+        private static decimal SafeGetDecimal(NpgsqlDataReader reader, string columnName, decimal defaultValue = 0m)
+        {
+            try
+            {
+                int ordinal = reader.GetOrdinal(columnName);
+                if (reader.IsDBNull(ordinal))
+                {
+                    return defaultValue;
+                }
+
+                return Convert.ToDecimal(reader.GetValue(ordinal));
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return defaultValue;
+            }
+        }
+
     }
 }
 

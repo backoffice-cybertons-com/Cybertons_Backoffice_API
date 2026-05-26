@@ -43,6 +43,8 @@ namespace SoftBook.Application.Services.Interfaces
         Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate);
 
         Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(int companyId, int? partyId, string? pAsOfDate, string partyType);
+
+
         Task<IEnumerable<SalePurchaseRegisterDatewiseComparisonDTO>> GetSalePurchaseRegisterDatewiseComparisonAsync(int companyId, string? where, string compareMode);
 
 
@@ -66,5 +68,8 @@ namespace SoftBook.Application.Services.Interfaces
 
         Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where);
 
+        Task<IEnumerable<DailyOutstandingDto>> GetDailyOutstandingReportAsync(int companyId, string fromDate, string toDate, int? partyId);
+
+        Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(long companyId, DateTime fromDate, DateTime toDate,int? partyId);
     }
 }

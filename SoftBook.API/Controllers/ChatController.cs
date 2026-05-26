@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.Authorization;
 using SoftBook.API.Hubs;
 using SoftBook.API.Models;
 using SoftBook.Application.Services.Interfaces;
@@ -138,20 +138,24 @@ namespace SoftBook.API.Controllers
         }
 
 
-        [Authorize]
+        //[AllowAnonymous]
         [HttpDelete("message/{messageId}")]
-        public async Task<IActionResult> DeleteMessage(long messageId)
+        public async Task<IActionResult> DeleteMessage(
+            long messageId,
+            [FromQuery] long? senderUserId = null)
         {
             try
             {
-                var currentUserId = GetCurrentUserId();
+                // Same pattern as send/mark-as-read: client supplies user id.
+                // JWT claim is used when present (optional auth on this controller).
+                var currentUserId = GetCurrentUserId() ?? senderUserId;
 
-                if (!currentUserId.HasValue)
+                if (!currentUserId.HasValue || currentUserId.Value <= 0)
                 {
-                    return Unauthorized(new
+                    return BadRequest(new
                     {
                         success = false,
-                        message = "Login required to delete a message"
+                        message = "senderUserId is required to delete a message"
                     });
                 }
 
@@ -200,9 +204,11 @@ namespace SoftBook.API.Controllers
         {
             var userIdClaim = User.FindFirst("UserId")?.Value
                 ?? User.FindFirst("user_id")?.Value
+                ?? User.FindFirst("id")?.Value
                 ?? User.FindFirst("sub")?.Value
                 ?? User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst(ClaimTypes.Name)?.Value;
 
             return long.TryParse(userIdClaim, out var userId) ? userId : null;
         }
