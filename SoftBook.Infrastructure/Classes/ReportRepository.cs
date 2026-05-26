@@ -1539,6 +1539,7 @@ namespace SoftBook.Infrastructure.Classes
                         TotalSale = SafeGetDecimal(reader, "total_sale"),
                         TotalReceipt = SafeGetDecimal(reader, "total_receipt"),
                         TotalOs = SafeGetDecimal(reader, "total_os"),
+                        TotalAdj = SafeGetDecimal(reader, "total_adjustment"),
                         AvgTerms = SafeGetDecimal(reader, "avg_terms"),
                     },
                     CommandType.Text);

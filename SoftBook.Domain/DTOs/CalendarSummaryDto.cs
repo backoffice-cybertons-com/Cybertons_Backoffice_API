@@ -11,6 +11,7 @@ namespace SoftBook.Domain.DTOs
         public decimal TotalReceipt { get; set; }
 
         public decimal TotalOs { get; set; }
+        public decimal TotalAdj { get; set; }
 
         public decimal AvgTerms { get; set; }
     }
