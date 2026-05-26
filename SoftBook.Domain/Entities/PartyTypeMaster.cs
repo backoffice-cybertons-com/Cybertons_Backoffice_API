@@ -19,6 +19,12 @@ namespace SoftBook.Domain.Entities
 
         public string? Description { get; set; }
 
+        public string? AccountNature { get; set; }
+        public string? ReportType { get; set; }
+        public string? NormalBalance { get; set; }
+        public string? ReportGroup { get; set; }
+        public bool IsDynamicNature { get; set; }
+
         public bool IsCustomer { get; set; }
 
         public bool IsVendor { get; set; }
