@@ -16,6 +16,7 @@ namespace SoftBook.Domain.Entities
     [Required]
     public string PartyType { get; set; } = string.Empty;
 
+    public string? ReportPartyType { get; set; }
 
     public int? PartyTypeId { get; set; }
 

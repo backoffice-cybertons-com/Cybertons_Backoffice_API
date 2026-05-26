@@ -43,6 +43,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
         {
           cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
           cmd.Parameters.AddWithValue("p_party_type", party.PartyType);
+          cmd.Parameters.AddWithValue("p_report_party_type", party.ReportPartyType ?? party.PartyType);
           cmd.Parameters.AddWithValue("p_salutation", party.Salutation ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_first_name", party.FirstName ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_last_name", party.LastName ?? (object)DBNull.Value);
@@ -92,6 +93,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           cmd.Parameters.AddWithValue("p_party_id", party.PartyId);
           cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
           cmd.Parameters.AddWithValue("p_party_type", party.PartyType);
+          cmd.Parameters.AddWithValue("p_report_party_type", party.ReportPartyType ?? party.PartyType);
           cmd.Parameters.AddWithValue("p_salutation", party.Salutation ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_first_name", party.FirstName ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_last_name", party.LastName ?? (object)DBNull.Value);
@@ -163,6 +165,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
        {
           PartyId = SafeGetInt(reader, "party_id"),
           PartyType = SafeGetString(reader, "party_type"),
+          ReportPartyType = SafeGetString(reader, "report_party_type"),
           Salutation = SafeGetString(reader, "salutation"),
           FirstName = SafeGetString(reader, "first_name"),
           LastName = SafeGetString(reader, "last_name"),
