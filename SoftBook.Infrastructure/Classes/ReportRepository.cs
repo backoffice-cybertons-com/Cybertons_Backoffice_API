@@ -1736,6 +1736,8 @@ ORDER BY
                         TotalOs = SafeGetDecimal(reader, "total_os"),
                         TotalAdj = SafeGetDecimal(reader, "total_adjustment"),
                         AvgTerms = SafeGetDecimal(reader, "avg_terms"),
+
+                        BgColor = SafeGetString(reader, "bg_color"),
                     },
                     CommandType.Text);
 

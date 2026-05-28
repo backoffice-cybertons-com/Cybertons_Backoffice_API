@@ -191,6 +191,17 @@ CREATE TABLE IF NOT EXISTS tab_payment_term_master (
     number_of_days INT
 );
 
+-- Outstanding Term Color Rules (for Daily Outstanding / calendar coloring)
+CREATE TABLE IF NOT EXISTS tab_outstanding_term_color_rules (
+    rule_id SERIAL PRIMARY KEY,
+    company_id INT NOT NULL,
+    min_day INT NOT NULL,
+    max_day INT NOT NULL,
+    color_code VARCHAR(20),
+    bg_color VARCHAR(20),
+    created_on TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -----------------------------------------------------------
 -- 3. PARTY & CRM
 -----------------------------------------------------------

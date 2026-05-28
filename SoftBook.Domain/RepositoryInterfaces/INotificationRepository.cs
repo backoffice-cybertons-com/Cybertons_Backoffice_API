@@ -15,5 +15,8 @@ namespace SoftBook.Domain.RepositoryInterfaces
         Task UpdateChatNotificationAsync(long notificationId, string message, long referenceId, int notificationCount);
         Task<string?> GetUserDisplayNameAsync(long userId);
         Task MarkChatNotificationsAsReadAsync(long companyId, long receiverUserId, long senderUserId);
+        Task<List<long>> BulkAddAnnouncementNotificationsAsync(long announcementId, string title, string message);
+        Task SoftDeleteByReferenceAsync(string referenceType, long referenceId);
+        Task<List<long>> RestoreOrCreateAnnouncementNotificationsAsync(long announcementId, string title, string message);
     }
 }

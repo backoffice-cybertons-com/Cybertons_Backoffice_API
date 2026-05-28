@@ -12,5 +12,17 @@ namespace SoftBook.Application.Services.Interfaces
         Task<bool> MarkToastAsShown(long companyId, long notificationId);
         Task CreateOrUpdateChatNotificationAsync(long companyId, long receiverUserId, long senderUserId, long messageId);
         Task MarkChatNotificationsAsReadAsync(long companyId, long receiverUserId, long senderUserId);
+        Task CreateAnnouncementNotificationsAsync(long announcementId, string title, string shortMessage);
+
+        /// <summary>
+        /// Soft-deletes delivery rows for an announcement (bell, toast, dropdown).
+        /// Use when announcement is deactivated or deleted.
+        /// </summary>
+        Task RevokeAnnouncementNotificationsAsync(long announcementId);
+
+        /// <summary>
+        /// Restores soft-deleted rows and creates missing delivery rows when an announcement is reactivated.
+        /// </summary>
+        Task RestoreAnnouncementNotificationsAsync(long announcementId, string title, string shortMessage);
     }
 }

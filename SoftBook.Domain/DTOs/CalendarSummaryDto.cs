@@ -13,6 +13,9 @@ namespace SoftBook.Domain.DTOs
         public decimal TotalOs { get; set; }
         public decimal TotalAdj { get; set; }
 
+
+
+        public string BgColor { get; set; }
         public decimal AvgTerms { get; set; }
     }
 }

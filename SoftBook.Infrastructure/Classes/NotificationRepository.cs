@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Npgsql;
+using SoftBook.Domain.Constants;
 using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
 using System;
@@ -268,6 +269,155 @@ namespace SoftBook.Infrastructure.Classes
                     cmd.Parameters.AddWithValue("@SenderUserId", senderUserId);
                 },
                 CommandType.Text);
+        }
+
+        public async Task<List<long>> BulkAddAnnouncementNotificationsAsync(
+            long announcementId,
+            string title,
+            string message)
+        {
+            const string query = @"
+                INSERT INTO tab_notifications
+                (
+                    company_id,
+                    user_id,
+                    title,
+                    message,
+                    reference_type,
+                    reference_id,
+                    created_date,
+                    is_read,
+                    is_deleted,
+                    toast_shown,
+                    notification_count,
+                    sender_user_id
+                )
+                SELECT
+                    u.company_id,
+                    u.user_id,
+                    @Title,
+                    @Message,
+                    @ReferenceType,
+                    @AnnouncementId,
+                    NOW(),
+                    false,
+                    false,
+                    false,
+                    1,
+                    NULL
+                FROM tab_user_master u
+                WHERE COALESCE(u.is_active, true) = true
+                  AND u.company_id > 0
+                RETURNING user_id";
+
+            return await ExecuteRawQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@Title", title ?? "");
+                    cmd.Parameters.AddWithValue("@Message", message ?? "");
+                    cmd.Parameters.AddWithValue("@ReferenceType", NotificationReferenceTypes.Announcement);
+                    cmd.Parameters.AddWithValue("@AnnouncementId", announcementId);
+                },
+                reader => Convert.ToInt64(reader["user_id"]));
+        }
+
+        public async Task SoftDeleteByReferenceAsync(string referenceType, long referenceId)
+        {
+            const string query = @"
+                UPDATE tab_notifications
+                SET is_deleted = true
+                WHERE reference_type = @ReferenceType
+                  AND reference_id = @ReferenceId
+                  AND is_deleted = false";
+
+            await ExecuteNonQueryAsync(
+                query,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@ReferenceType", referenceType);
+                    cmd.Parameters.AddWithValue("@ReferenceId", referenceId);
+                },
+                CommandType.Text);
+        }
+
+        public async Task<List<long>> RestoreOrCreateAnnouncementNotificationsAsync(
+            long announcementId,
+            string title,
+            string message)
+        {
+            const string restoreQuery = @"
+                UPDATE tab_notifications
+                SET
+                    is_deleted = false,
+                    title = @Title,
+                    message = @Message
+                WHERE reference_type = @ReferenceType
+                  AND reference_id = @AnnouncementId
+                  AND is_deleted = true";
+
+            await ExecuteNonQueryAsync(
+                restoreQuery,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@Title", title ?? "");
+                    cmd.Parameters.AddWithValue("@Message", message ?? "");
+                    cmd.Parameters.AddWithValue("@ReferenceType", NotificationReferenceTypes.Announcement);
+                    cmd.Parameters.AddWithValue("@AnnouncementId", announcementId);
+                },
+                CommandType.Text);
+
+            const string insertQuery = @"
+                INSERT INTO tab_notifications
+                (
+                    company_id,
+                    user_id,
+                    title,
+                    message,
+                    reference_type,
+                    reference_id,
+                    created_date,
+                    is_read,
+                    is_deleted,
+                    toast_shown,
+                    notification_count,
+                    sender_user_id
+                )
+                SELECT
+                    u.company_id,
+                    u.user_id,
+                    @Title,
+                    @Message,
+                    @ReferenceType,
+                    @AnnouncementId,
+                    NOW(),
+                    false,
+                    false,
+                    false,
+                    1,
+                    NULL
+                FROM tab_user_master u
+                WHERE COALESCE(u.is_active, true) = true
+                  AND u.company_id > 0
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM tab_notifications n
+                      WHERE n.reference_type = @ReferenceType
+                        AND n.reference_id = @AnnouncementId
+                        AND n.user_id = u.user_id
+                  )
+                RETURNING user_id";
+
+            return await ExecuteRawQueryAsync(
+                insertQuery,
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@Title", title ?? "");
+                    cmd.Parameters.AddWithValue("@Message", message ?? "");
+                    cmd.Parameters.AddWithValue("@ReferenceType", NotificationReferenceTypes.Announcement);
+                    cmd.Parameters.AddWithValue("@AnnouncementId", announcementId);
+                },
+                reader => Convert.ToInt64(reader["user_id"]));
         }
     }
 }
