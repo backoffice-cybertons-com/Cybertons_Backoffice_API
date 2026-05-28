@@ -770,6 +770,21 @@ CREATE TABLE IF NOT EXISTS tab_payment_term_master (
 CREATE INDEX IF NOT EXISTS idx_payment_term_company ON tab_payment_term_master(company_id);
 
 -----------------------------------------------------------
+-- TABLE: TabOutstandingTermColorRules
+-----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tab_outstanding_term_color_rules (
+    rule_id SERIAL PRIMARY KEY,
+    company_id INT NOT NULL,
+    min_day INT NOT NULL,
+    max_day INT NOT NULL,
+    color_code VARCHAR(20),
+    bg_color VARCHAR(20),
+    created_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_outstanding_term_color_rules_company ON tab_outstanding_term_color_rules(company_id);
+
+-----------------------------------------------------------
 -- TABLE: TabProductGroupMaster
 -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS tab_product_group_master (

@@ -1,4 +1,5 @@
 using SoftBook.Application.Services.Interfaces;
+using SoftBook.Domain.Constants;
 using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
 using System.Collections.Generic;
@@ -101,6 +102,43 @@ namespace SoftBook.Application.Services.Classes
                 companyId,
                 receiverUserId,
                 senderUserId);
+        }
+
+        public async Task CreateAnnouncementNotificationsAsync(
+            long announcementId,
+            string title,
+            string shortMessage)
+        {
+            var userIds = await _notificationRepository.BulkAddAnnouncementNotificationsAsync(
+                announcementId,
+                title,
+                shortMessage ?? "");
+
+            foreach (var userId in userIds)
+            {
+                await _realtimeNotifier.NotifyUserAsync(userId);
+            }
+        }
+
+        public Task RevokeAnnouncementNotificationsAsync(long announcementId) =>
+            _notificationRepository.SoftDeleteByReferenceAsync(
+                NotificationReferenceTypes.Announcement,
+                announcementId);
+
+        public async Task RestoreAnnouncementNotificationsAsync(
+            long announcementId,
+            string title,
+            string shortMessage)
+        {
+            var userIds = await _notificationRepository.RestoreOrCreateAnnouncementNotificationsAsync(
+                announcementId,
+                title,
+                shortMessage ?? "");
+
+            foreach (var userId in userIds)
+            {
+                await _realtimeNotifier.NotifyUserAsync(userId);
+            }
         }
 
         internal static string BuildChatNotificationMessage(string senderName, int count)

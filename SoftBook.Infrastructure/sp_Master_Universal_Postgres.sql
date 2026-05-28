@@ -73,6 +73,7 @@ BEGIN
         WHEN 'fiscalyear', 'tabfiscalyearmaster', 'fiscal_year', 'fiscal_year_master', 'fiscalyears' THEN v_table_name := 'tab_fiscal_year_master'; v_pk_name := 'fiscal_year_id';
         WHEN 'paymentmode', 'tabpaymentmodemaster', 'payment_mode', 'payment_mode_master', 'paymentmodes' THEN v_table_name := 'tab_payment_mode_master'; v_pk_name := 'payment_mode_id_internal';
         WHEN 'paymentterm', 'tabpaymenttermmaster', 'payment_term', 'payment_term_master', 'paymentterms' THEN v_table_name := 'tab_payment_term_master'; v_pk_name := 'term_id';
+        WHEN 'outstandingtermcolorrules', 'outstanding_term_color_rules', 'outstanding-term-color-rules' THEN v_table_name := 'tab_outstanding_term_color_rules'; v_pk_name := 'rule_id';
         WHEN 'productgroup', 'tabproductgroupmaster', 'product_group', 'productgroups' THEN v_table_name := 'tab_product_group_master'; v_pk_name := 'product_group_id';
         WHEN 'project', 'tabprojectmaster', 'project_master', 'projects' THEN v_table_name := 'tab_project_master'; v_pk_name := 'project_id';
         WHEN 'role', 'tabrolemaster', 'role_master', 'roles' THEN v_table_name := 'tab_role_master'; v_pk_name := 'role_id';

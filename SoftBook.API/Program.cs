@@ -162,6 +162,8 @@ builder.Services.AddScoped<IPartyTypeRepository, PartyTypeRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
             builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
             builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+            builder.Services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
+builder.Services.AddScoped<IOutstandingTermConfigRepository, OutstandingTermConfigRepository>();
             builder.Services.AddHostedService<ReminderBackgroundService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 
@@ -191,6 +193,8 @@ builder.Services.AddScoped<IPartyTypeService, PartyTypeService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
             builder.Services.AddScoped<ITaskTemplateService, TaskTemplateService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddScoped<IOutstandingTermConfigService, OutstandingTermConfigService>();
             builder.Services.AddScoped<IRecurrenceService, RecurrenceService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 
