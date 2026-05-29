@@ -72,5 +72,10 @@ namespace SoftBook.Application.Services.Interfaces
         Task<IEnumerable<DailyOutstandingDto>> GetDailyOutstandingReportAsync(int companyId, string fromDate, string toDate, int? partyId);
 
         Task<IEnumerable<CalendarSummaryDto>> GetCalendarSummaryReportAsync(long companyId, DateTime fromDate, DateTime toDate,int? partyId);
+
+        // Code developed by Hetak Modi 290526
+        Task<List<DayBookReportDTO>> GetDayBookReportAsync(int companyId, DateTime fromDate, DateTime toDate);
+        Task<List<CashBankBookReportDTO>> GetCashBookReportAsync(int companyId, DateTime fromDate, DateTime toDate);
+        Task<List<CashBankBookReportDTO>> GetBankBookReportAsync(int companyId, DateTime fromDate, DateTime toDate);
     }
 }

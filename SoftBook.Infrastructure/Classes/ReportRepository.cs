@@ -1683,6 +1683,80 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+        // Code developed by Hetak Modi 290526
+        public async Task<List<DayBookReportDTO>> GetDayBookReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            var entries = await ExecuteReaderAsync("SELECT * FROM fn_get_day_book(@p_company_id, @p_from_date, @p_to_date)", cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+            }, reader =>
+            {
+                return new DayBookReportDTO
+                {
+                    JvDate = reader.GetDateTime(reader.GetOrdinal("jv_date")),
+                    JvCode = reader.GetInt64(reader.GetOrdinal("jv_code")),
+                    VType = reader.IsDBNull(reader.GetOrdinal("v_type")) ? null : reader.GetString(reader.GetOrdinal("v_type")),
+                    DrAccountName = reader.IsDBNull(reader.GetOrdinal("dr_account_name")) ? null : reader.GetString(reader.GetOrdinal("dr_account_name")),
+                    CrAccountName = reader.IsDBNull(reader.GetOrdinal("cr_account_name")) ? null : reader.GetString(reader.GetOrdinal("cr_account_name")),
+                    Amount = reader.IsDBNull(reader.GetOrdinal("amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("amount")),
+                    Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString(reader.GetOrdinal("description"))
+                };
+            }, CommandType.Text);
+
+            return entries.ToList();
+        }
+
+        // Code developed by Hetak Modi 290526
+        public async Task<List<CashBankBookReportDTO>> GetCashBookReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            var entries = await ExecuteReaderAsync("SELECT * FROM fn_get_cash_book(@p_company_id, @p_from_date, @p_to_date)", cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+            }, reader =>
+            {
+                return new CashBankBookReportDTO
+                {
+                    TransactionDate = reader.GetDateTime(reader.GetOrdinal("transaction_date")),
+                    VoucherNo = reader.IsDBNull(reader.GetOrdinal("voucher_no")) ? (long?)null : reader.GetInt64(reader.GetOrdinal("voucher_no")),
+                    VoucherType = reader.IsDBNull(reader.GetOrdinal("voucher_type")) ? null : reader.GetString(reader.GetOrdinal("voucher_type")),
+                    Particulars = reader.IsDBNull(reader.GetOrdinal("particulars")) ? null : reader.GetString(reader.GetOrdinal("particulars")),
+                    ReceiptAmount = reader.IsDBNull(reader.GetOrdinal("receipt_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("receipt_amount")),
+                    PaymentAmount = reader.IsDBNull(reader.GetOrdinal("payment_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("payment_amount")),
+                    Balance = reader.IsDBNull(reader.GetOrdinal("balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("balance"))
+                };
+            }, CommandType.Text);
+
+            return entries.ToList();
+        }
+
+        // Code developed by Hetak Modi 290526
+        public async Task<List<CashBankBookReportDTO>> GetBankBookReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            var entries = await ExecuteReaderAsync("SELECT * FROM fn_get_bank_book(@p_company_id, @p_from_date, @p_to_date)", cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+            }, reader =>
+            {
+                return new CashBankBookReportDTO
+                {
+                    TransactionDate = reader.GetDateTime(reader.GetOrdinal("transaction_date")),
+                    VoucherNo = reader.IsDBNull(reader.GetOrdinal("voucher_no")) ? (long?)null : reader.GetInt64(reader.GetOrdinal("voucher_no")),
+                    VoucherType = reader.IsDBNull(reader.GetOrdinal("voucher_type")) ? null : reader.GetString(reader.GetOrdinal("voucher_type")),
+                    Particulars = reader.IsDBNull(reader.GetOrdinal("particulars")) ? null : reader.GetString(reader.GetOrdinal("particulars")),
+                    ReceiptAmount = reader.IsDBNull(reader.GetOrdinal("receipt_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("receipt_amount")),
+                    PaymentAmount = reader.IsDBNull(reader.GetOrdinal("payment_amount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("payment_amount")),
+                    Balance = reader.IsDBNull(reader.GetOrdinal("balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("balance"))
+                };
+            }, CommandType.Text);
+
+            return entries.ToList();
+        }
+
     }
 }
-

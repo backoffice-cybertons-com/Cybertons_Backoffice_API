@@ -666,5 +666,53 @@ namespace SoftBook.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        // Code developed by Hetak Modi 290526
+        [HttpGet("day-book")]
+        public async Task<IActionResult> GetDayBook([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                if (companyId == 0) return BadRequest("Company ID is required.");
+                var result = await _reportService.GetDayBookReportAsync(companyId, fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        // Code developed by Hetak Modi 290526
+        [HttpGet("cash-book")]
+        public async Task<IActionResult> GetCashBook([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                if (companyId == 0) return BadRequest("Company ID is required.");
+                var result = await _reportService.GetCashBookReportAsync(companyId, fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        // Code developed by Hetak Modi 290526
+        [HttpGet("bank-book")]
+        public async Task<IActionResult> GetBankBook([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                if (companyId == 0) return BadRequest("Company ID is required.");
+                var result = await _reportService.GetBankBookReportAsync(companyId, fromDate, toDate);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

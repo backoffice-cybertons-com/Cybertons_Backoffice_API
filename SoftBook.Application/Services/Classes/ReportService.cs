@@ -730,7 +730,22 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetSalePurchaseRegisterTransactionWise(companyId, invType, where);
         }
 
+        // Code developed by Hetak Modi 290526
+        public async Task<List<DayBookReportDTO>> GetDayBookReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetDayBookReportAsync(companyId, fromDate, toDate);
+        }
 
+        // Code developed by Hetak Modi 290526
+        public async Task<List<CashBankBookReportDTO>> GetCashBookReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetCashBookReportAsync(companyId, fromDate, toDate);
+        }
 
+        // Code developed by Hetak Modi 290526
+        public async Task<List<CashBankBookReportDTO>> GetBankBookReportAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            return await _reportRepository.GetBankBookReportAsync(companyId, fromDate, toDate);
+        }
     }
 }
