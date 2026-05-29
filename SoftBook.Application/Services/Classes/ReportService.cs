@@ -108,6 +108,11 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetBalanceSheetReportAsync(companyId, asOfDate);
         }
 
+        public async Task<List<BalanceSheetReportDTO>> GetProfitLossReportAsync(int companyId, DateTime asOfDate)
+        {
+            return await _reportRepository.GetProfitLossReportAsync(companyId, asOfDate);
+        }
+
 
 
         //by diya 4/24

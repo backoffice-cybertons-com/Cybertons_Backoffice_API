@@ -41,6 +41,7 @@ namespace SoftBook.Application.Services.Interfaces
         //==============================================trial balance hetak modi230426======================================================================
         Task<List<TrialBalanceDTO>> GetTrialBalance(int companyId, DateTime date);
         Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate);
+        Task<List<BalanceSheetReportDTO>> GetProfitLossReportAsync(int companyId, DateTime asOfDate);
 
         Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(int companyId, int? partyId, string? pAsOfDate, string partyType);
 

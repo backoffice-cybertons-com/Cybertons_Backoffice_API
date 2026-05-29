@@ -377,12 +377,25 @@ namespace SoftBook.API.Controllers
         {
             if (companyId == 0)
             {
-                return BadRequest("Company context not found.");
+                return BadRequest("Company ID is required.");
             }
 
             var result = await _reportService.GetBalanceSheetReportAsync(companyId, date);
             return Ok(result);
         }
+
+        [HttpGet("profit-loss")]
+        public async Task<IActionResult> GetProfitLoss([FromQuery] int companyId, [FromQuery] DateTime date)
+        {
+            if (companyId == 0)
+            {
+                return BadRequest("Company ID is required.");
+            }
+
+            var result = await _reportService.GetProfitLossReportAsync(companyId, date);
+            return Ok(result);
+        }
+
 
 
 

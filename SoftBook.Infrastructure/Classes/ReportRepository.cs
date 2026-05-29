@@ -842,149 +842,60 @@ namespace SoftBook.Infrastructure.Classes
 
         public async Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate)
         {
-            const string sql = @"
-WITH params AS (
-    SELECT
-        CAST(@p_company_id AS INT) AS company_id,
-        CAST(@p_as_of_date AS DATE) AS as_of_date
-),
-ledger_master AS (
-    SELECT
-        p.party_id::BIGINT AS ledger_id,
-        CASE
-            WHEN UPPER(COALESCE(p.party_type, '')) IN ('SALES','PURCHASE','TAX','OTHER','CASH','BANK')
-                 AND NULLIF(TRIM(p.company_name), '') IS NOT NULL
-                THEN p.company_name
-            ELSE COALESCE(NULLIF(TRIM(p.display_name), ''), NULLIF(TRIM(p.company_name), ''), p.party_id::TEXT)
-        END AS ledger_name,
-        p.party_type,
-        CASE
-            WHEN UPPER(COALESCE(p.party_type, '')) IN ('CUSTOMER','ASSET','ASSETS','CASH','BANK') THEN 'ASSET'
-            WHEN UPPER(COALESCE(p.party_type, '')) IN ('VENDOR','LIABILITY','LIABILITIES','CAPITAL','EQUITY') THEN 'LIABILITY'
-            WHEN UPPER(COALESCE(p.party_type, '')) = 'TAX'
-                 AND UPPER(COALESCE(p.company_name, '') || ' ' || COALESCE(p.display_name, '')) LIKE '%INPUT%' THEN 'ASSET'
-            WHEN UPPER(COALESCE(p.party_type, '')) = 'TAX'
-                 AND UPPER(COALESCE(p.company_name, '') || ' ' || COALESCE(p.display_name, '')) LIKE '%OUTPUT%' THEN 'LIABILITY'
-            ELSE 'PROFIT_LOSS'
-        END AS report_nature,
-        CASE
-            WHEN UPPER(COALESCE(p.party_type, '')) = 'CUSTOMER' THEN 'Sundry Debtors'
-            WHEN UPPER(COALESCE(p.party_type, '')) = 'VENDOR' THEN 'Sundry Creditors'
-            WHEN UPPER(COALESCE(p.party_type, '')) IN ('CASH','BANK') THEN 'Cash & Bank'
-            WHEN UPPER(COALESCE(p.party_type, '')) = 'TAX'
-                 AND UPPER(COALESCE(p.company_name, '') || ' ' || COALESCE(p.display_name, '')) LIKE '%INPUT%' THEN 'GST Input'
-            WHEN UPPER(COALESCE(p.party_type, '')) = 'TAX'
-                 AND UPPER(COALESCE(p.company_name, '') || ' ' || COALESCE(p.display_name, '')) LIKE '%OUTPUT%' THEN 'GST Output'
-            WHEN UPPER(COALESCE(p.party_type, '')) IN ('CAPITAL','EQUITY') THEN 'Capital Account'
-            ELSE COALESCE(NULLIF(TRIM(p.party_type), ''), 'Other')
-        END AS group_name,
-        CASE
-            WHEN UPPER(TRIM(COALESCE(p.opening_balance_type, ''))) IN ('DR','DEBIT','D','RECEIVABLE','REC','DEBT')
-                THEN ABS(COALESCE(p.opening_balance, 0))::NUMERIC
-            WHEN UPPER(TRIM(COALESCE(p.opening_balance_type, ''))) IN ('CR','CREDIT','C','PAYABLE','PAY','CRED')
-                THEN -ABS(COALESCE(p.opening_balance, 0))::NUMERIC
-            ELSE 0::NUMERIC
-        END AS opening_signed
-    FROM public.tab_party_master p
-    CROSS JOIN params prm
-    WHERE p.company_id = prm.company_id
-),
-jv_flat AS (
-    SELECT j.dr_account_code::BIGINT AS ledger_id, j.amount::NUMERIC AS signed_amount
-    FROM public.tab_jv j
-    CROSS JOIN params prm
-    WHERE j.jv_comp_code = prm.company_id
-      AND j.jv_date < prm.as_of_date + INTERVAL '1 day'
-      AND COALESCE(j.delete_flag, FALSE) = FALSE
+            const string sql = "SELECT * FROM public.fn_get_balance_sheet(@p_company_id, @p_as_of_date);";
 
-    UNION ALL
+            return await ExecuteReaderAsync(
+                sql,
+                cmd =>
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                    {
+                        Value = companyId
+                    });
+                    cmd.Parameters.Add(new NpgsqlParameter("p_as_of_date", NpgsqlTypes.NpgsqlDbType.Date)
+                    {
+                        Value = asOfDate
+                    });
+                },
+                reader =>
+                {
+                    string? GetNullableString(string name)
+                    {
+                        var ordinal = reader.GetOrdinal(name);
+                        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+                    }
 
-    SELECT j.cr_account_code::BIGINT AS ledger_id, -j.amount::NUMERIC AS signed_amount
-    FROM public.tab_jv j
-    CROSS JOIN params prm
-    WHERE j.jv_comp_code = prm.company_id
-      AND j.jv_date < prm.as_of_date + INTERVAL '1 day'
-      AND COALESCE(j.delete_flag, FALSE) = FALSE
-),
-ledger_balances AS (
-    SELECT
-        lm.ledger_id,
-        lm.ledger_name,
-        lm.party_type,
-        lm.report_nature,
-        lm.group_name,
-        lm.opening_signed + COALESCE(SUM(jf.signed_amount), 0) AS closing_signed
-    FROM ledger_master lm
-    LEFT JOIN jv_flat jf ON jf.ledger_id = lm.ledger_id
-    GROUP BY
-        lm.ledger_id,
-        lm.ledger_name,
-        lm.party_type,
-        lm.report_nature,
-        lm.group_name,
-        lm.opening_signed
-),
-pl_calc AS (
-    SELECT COALESCE(SUM(closing_signed), 0) AS pl_signed
-    FROM ledger_balances
-    WHERE report_nature = 'PROFIT_LOSS'
-),
-bs_rows AS (
-    SELECT
-        CASE
-            WHEN report_nature = 'ASSET' AND closing_signed >= 0 THEN 'ASSETS'
-            WHEN report_nature = 'ASSET' AND closing_signed < 0 THEN 'LIABILITIES'
-            WHEN report_nature = 'LIABILITY' AND closing_signed <= 0 THEN 'LIABILITIES'
-            WHEN report_nature = 'LIABILITY' AND closing_signed > 0 THEN 'ASSETS'
-        END AS report_side,
-        group_name,
-        ledger_id,
-        ledger_name,
-        ABS(closing_signed) AS amount
-    FROM ledger_balances
-    WHERE report_nature IN ('ASSET','LIABILITY')
-      AND ROUND(closing_signed, 2) <> 0
+                    long? GetNullableLong(string name)
+                    {
+                        var ordinal = reader.GetOrdinal(name);
+                        if (reader.IsDBNull(ordinal)) return null;
+                        var value = reader.GetValue(ordinal);
+                        return value is long l ? l : Convert.ToInt64(value);
+                    }
 
-    UNION ALL
+                    decimal GetDecimal(string name)
+                    {
+                        var ordinal = reader.GetOrdinal(name);
+                        return reader.IsDBNull(ordinal) ? 0 : reader.GetDecimal(ordinal);
+                    }
 
-    SELECT
-        CASE WHEN pl_signed < 0 THEN 'LIABILITIES' ELSE 'ASSETS' END AS report_side,
-        'Profit & Loss' AS group_name,
-        NULL::BIGINT AS ledger_id,
-        CASE WHEN pl_signed < 0 THEN 'Current Profit' ELSE 'Current Loss' END AS ledger_name,
-        ABS(pl_signed) AS amount
-    FROM pl_calc
-    WHERE ROUND(pl_signed, 2) <> 0
-),
-report_rows AS (
-    SELECT report_side, 'DETAIL' AS row_type, group_name, ledger_id, ledger_name, amount
-    FROM bs_rows
+                    return new BalanceSheetReportDTO
+                    {
+                        ReportSide = GetNullableString("report_side"),
+                        RowType = GetNullableString("row_type"),
+                        GroupName = GetNullableString("group_name"),
+                        LedgerId = GetNullableLong("ledger_id"),
+                        LedgerName = GetNullableString("ledger_name"),
+                        Amount = GetDecimal("amount")
+                    };
+                },
+                CommandType.Text
+            );
+        }
 
-    UNION ALL
-
-    SELECT report_side, 'GROUP_TOTAL', group_name, NULL::BIGINT, group_name || ' Total', SUM(amount)
-    FROM bs_rows
-    GROUP BY report_side, group_name
-
-    UNION ALL
-
-    SELECT report_side, 'GRAND_TOTAL', 'TOTAL', NULL::BIGINT, report_side || ' TOTAL', SUM(amount)
-    FROM bs_rows
-    GROUP BY report_side
-)
-SELECT
-    report_side,
-    row_type,
-    group_name,
-    ledger_id,
-    ledger_name,
-    ROUND(amount, 2) AS amount
-FROM report_rows
-ORDER BY
-    CASE report_side WHEN 'LIABILITIES' THEN 1 ELSE 2 END,
-    group_name,
-    CASE row_type WHEN 'DETAIL' THEN 1 WHEN 'GROUP_TOTAL' THEN 2 ELSE 3 END,
-    ledger_name;";
+        public async Task<List<BalanceSheetReportDTO>> GetProfitLossReportAsync(int companyId, DateTime asOfDate)
+        {
+            const string sql = "SELECT * FROM public.fn_get_profit_loss(@p_company_id, @p_as_of_date);";
 
             return await ExecuteReaderAsync(
                 sql,

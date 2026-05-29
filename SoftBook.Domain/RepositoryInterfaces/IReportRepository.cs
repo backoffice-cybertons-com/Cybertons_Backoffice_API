@@ -44,6 +44,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
         //=======================================================================================================================================
         Task<List<TrialBalanceDTO>> GetTrialBalance(int companyId, DateTime date);
         Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate);
+        Task<List<BalanceSheetReportDTO>> GetProfitLossReportAsync(int companyId, DateTime asOfDate);
 
 
 
