@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -24,5 +24,6 @@ namespace SoftBook.Domain.DTOs
         public decimal Terms { get; set; }
         public decimal Weekly { get; set; }
         public decimal Monthly { get; set; }
+        public decimal MonthlyTerm { get; set; }
     }
 }

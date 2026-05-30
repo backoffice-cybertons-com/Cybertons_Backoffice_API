@@ -1034,7 +1034,11 @@ namespace SoftBook.Infrastructure.Classes
 
                                         Monthly = reader.IsDBNull(reader.GetOrdinal("monthly"))
                                             ? 0
-                                            : reader.GetDecimal(reader.GetOrdinal("monthly"))
+                                            : reader.GetDecimal(reader.GetOrdinal("monthly")),
+
+                                        MonthlyTerm = reader.IsDBNull(reader.GetOrdinal("monthly_term"))
+                                            ? 0
+                                            : reader.GetDecimal(reader.GetOrdinal("monthly_term"))
                                     };
                                 },
 
