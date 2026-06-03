@@ -61,6 +61,10 @@ namespace SoftBook.Application.Services.Classes
 			header.TodaysReceipt = await _salePurRepository.GetTodaysReceiptAsync(
 				companyId, header.PartyId, header.InvDate.Date);
 
+			// Compute Today's Invoice total for this customer on this date
+			header.TodaysInvoice = await _salePurRepository.GetTodaysInvoiceAmountAsync(
+				companyId, header.PartyId, header.InvDate.Date);
+
 			return new SalesTransactionViewModel
 			{
 				Header = header,

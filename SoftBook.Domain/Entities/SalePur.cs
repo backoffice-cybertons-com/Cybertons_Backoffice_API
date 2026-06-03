@@ -198,6 +198,10 @@ namespace SoftBook.Domain.Entities
 		[JsonPropertyName("todaysReceipt")]
 		public decimal? TodaysReceipt { get; set; }
 
+		[NotMapped]
+		[JsonPropertyName("todaysInvoice")]
+		public decimal? TodaysInvoice { get; set; }
+
         [Column("invoice_total")]
         public decimal? InvoiceTotal { get; set; }
 

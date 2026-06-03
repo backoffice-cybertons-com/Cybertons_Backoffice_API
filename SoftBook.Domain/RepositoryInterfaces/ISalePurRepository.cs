@@ -45,6 +45,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
 		Task<decimal> GetPartyOutstandingAsync(int companyId, int partyId);
 		Task<decimal> GetPartyOutstandingBeforeDateAsync(int companyId, int partyId, DateTime beforeDate);
 		Task<decimal> GetTodaysReceiptAsync(int companyId, int partyId, DateTime date);
+		Task<decimal> GetTodaysInvoiceAmountAsync(int companyId, int partyId, DateTime date);
 
 		Task<List<SalePurTran>> GetLineItemsAsync(int spUniqueCode);
 		Task<DbResult> InsertLineItemAsync(SalePurTran entity, IDbTransaction? transaction = null);

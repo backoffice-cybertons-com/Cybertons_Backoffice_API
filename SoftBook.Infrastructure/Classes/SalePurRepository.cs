@@ -717,5 +717,29 @@ namespace SoftBook.Infrastructure.Classes
 			return 0;
 		}
 
+		public async Task<decimal> GetTodaysInvoiceAmountAsync(int companyId, int partyId, DateTime date)
+		{
+			var result = await ExecuteScalarAsync<object>(@"
+                SELECT COALESCE(SUM(grand_total), 0)
+                FROM public.tab_sale_pur
+                WHERE company_id = @p_company_id
+                  AND party_id = @p_party_id
+                  AND inv_type = 'Sales'
+                  AND inv_date::DATE = @p_date
+                  AND (delete_flag = false OR delete_flag IS NULL)",
+			cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+				cmd.Parameters.AddWithValue("p_party_id", partyId);
+				cmd.Parameters.Add(new NpgsqlParameter("p_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = date });
+			}, CommandType.Text);
+
+			if (result != null && result != DBNull.Value)
+			{
+				if (result is decimal d) return d;
+				if (decimal.TryParse(result.ToString(), out decimal parsed)) return parsed;
+			}
+			return 0;
+		}
 	}
 }

@@ -64,8 +64,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowBookUI", policy =>
     {
         policy.WithOrigins(
-                "http://book.softoncloud.com",
-                "https://book.softoncloud.com",
+                //"http://book.softoncloud.com",
+                //"https://book.softoncloud.com",
+                //"https://book.softoncloud.com",
+                "https://backoffice.cybertons.com",
+                "http://backoffice.cybertons.com",
                 "http://localhost:5173",
                 "http://localhost:3000"
             )

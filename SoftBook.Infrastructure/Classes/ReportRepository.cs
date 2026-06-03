@@ -1437,8 +1437,13 @@ namespace SoftBook.Infrastructure.Classes
                 UnitName = SafeGetString(reader, "unit_name"),
                 OpeningQty = reader.IsDBNull(reader.GetOrdinal("opening_qty")) ? 0 : Convert.ToDecimal(reader["opening_qty"]),
                 InwardQty = reader.IsDBNull(reader.GetOrdinal("inward_qty")) ? 0 : Convert.ToDecimal(reader["inward_qty"]),
+                CostPrice = reader.IsDBNull(reader.GetOrdinal("cost_price")) ? 0 : Convert.ToDecimal(reader["cost_price"]),
+                InwardAmount = reader.IsDBNull(reader.GetOrdinal("inward_amount")) ? 0 : Convert.ToDecimal(reader["inward_amount"]),
                 OutwardQty = reader.IsDBNull(reader.GetOrdinal("outward_qty")) ? 0 : Convert.ToDecimal(reader["outward_qty"]),
-                ClosingQty = reader.IsDBNull(reader.GetOrdinal("closing_qty")) ? 0 : Convert.ToDecimal(reader["closing_qty"])
+                SellingPrice = reader.IsDBNull(reader.GetOrdinal("selling_price")) ? 0 : Convert.ToDecimal(reader["selling_price"]),
+                OutwardAmount = reader.IsDBNull(reader.GetOrdinal("outward_amount")) ? 0 : Convert.ToDecimal(reader["outward_amount"]),
+                ClosingQty = reader.IsDBNull(reader.GetOrdinal("closing_qty")) ? 0 : Convert.ToDecimal(reader["closing_qty"]),
+                ClosingAmount = reader.IsDBNull(reader.GetOrdinal("closing_amount")) ? 0 : Convert.ToDecimal(reader["closing_amount"])
             });
         }
 
@@ -1507,12 +1512,15 @@ namespace SoftBook.Infrastructure.Classes
                     {
                         return new StockLedgerDatewiseDTO
                         {
-                            SrNo        = reader.IsDBNull(reader.GetOrdinal("sr_no"))        ? 0    : reader.GetInt64(reader.GetOrdinal("sr_no")),
-                            TranDate    = reader.IsDBNull(reader.GetOrdinal("tran_date"))    ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("tran_date")),
-                            Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString(reader.GetOrdinal("description")),
-                            InwardQty   = reader.IsDBNull(reader.GetOrdinal("inward_qty"))  ? 0    : reader.GetDecimal(reader.GetOrdinal("inward_qty")),
-                            OutwardQty  = reader.IsDBNull(reader.GetOrdinal("outward_qty")) ? 0    : reader.GetDecimal(reader.GetOrdinal("outward_qty")),
-                            BalanceQty  = reader.IsDBNull(reader.GetOrdinal("balance_qty")) ? 0    : reader.GetDecimal(reader.GetOrdinal("balance_qty"))
+                            SrNo        = reader.IsDBNull(reader.GetOrdinal("res_sr_no"))        ? 0    : reader.GetInt64(reader.GetOrdinal("res_sr_no")),
+                            TranDate    = reader.IsDBNull(reader.GetOrdinal("res_tran_date"))    ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("res_tran_date")),
+                            Description = reader.IsDBNull(reader.GetOrdinal("res_description")) ? null : reader.GetString(reader.GetOrdinal("res_description")),
+                            InwardQty   = reader.IsDBNull(reader.GetOrdinal("res_inward_qty"))  ? 0    : reader.GetDecimal(reader.GetOrdinal("res_inward_qty")),
+                            InwardAmount = reader.IsDBNull(reader.GetOrdinal("res_inward_amount"))? 0  : reader.GetDecimal(reader.GetOrdinal("res_inward_amount")),
+                            OutwardQty  = reader.IsDBNull(reader.GetOrdinal("res_outward_qty")) ? 0    : reader.GetDecimal(reader.GetOrdinal("res_outward_qty")),
+                            OutwardAmount = reader.IsDBNull(reader.GetOrdinal("res_outward_amount"))? 0 : reader.GetDecimal(reader.GetOrdinal("res_outward_amount")),
+                            BalanceQty  = reader.IsDBNull(reader.GetOrdinal("res_balance_qty")) ? 0    : reader.GetDecimal(reader.GetOrdinal("res_balance_qty")),
+                            BalanceAmount = reader.IsDBNull(reader.GetOrdinal("res_balance_amount"))? 0 : reader.GetDecimal(reader.GetOrdinal("res_balance_amount"))
                         };
                     },
                     CommandType.Text
