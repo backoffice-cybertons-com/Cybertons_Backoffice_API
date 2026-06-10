@@ -1770,5 +1770,100 @@ namespace SoftBook.Infrastructure.Classes
             return entries.ToList();
         }
 
+        public async Task<List<BelowPriceSalesReportDTO>> GetBelowPriceSalesReportAsync(
+            int companyId,
+            DateTime fromDate,
+            DateTime toDate,
+            string? filterType)
+        {
+            const string sql = @"
+                SELECT
+                    h.sp_unique_code,
+                    h.inv_date,
+                    h.inv_no,
+                    COALESCE(pm.display_name, '') AS party_name,
+                    COALESCE(NULLIF(TRIM(p.product_name), ''), NULLIF(TRIM(t.product_details), ''), 'Unknown Item') AS product_name,
+                    COALESCE(t.quantity, 0) AS qty,
+                    COALESCE(t.rate, 0) AS invoice_rate,
+                    COALESCE(p.cost_price, 0) AS cost_price,
+                    COALESCE(p.selling_price, 0) AS selling_price,
+                    (COALESCE(p.cost_price, 0) - COALESCE(t.rate, 0)) AS loss_vs_cost,
+                    (COALESCE(p.selling_price, 0) - COALESCE(t.rate, 0)) AS diff_vs_selling_price,
+                    (COALESCE(p.cost_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.cost_price, 0)) AS is_below_cost,
+                    (COALESCE(p.selling_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.selling_price, 0)) AS is_below_selling_price,
+                    CASE
+                        WHEN COALESCE(p.cost_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.cost_price, 0)
+                         AND COALESCE(p.selling_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.selling_price, 0)
+                            THEN 'Below Cost & Sale Price'
+                        WHEN COALESCE(p.cost_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.cost_price, 0)
+                            THEN 'Below Cost Price'
+                        WHEN COALESCE(p.selling_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.selling_price, 0)
+                            THEN 'Below Sale Price'
+                        ELSE 'Price Alert'
+                    END AS alert_type
+                FROM public.tab_sal_pur_tran t
+                INNER JOIN public.tab_sale_pur h
+                    ON t.sp_unique_code = h.sp_unique_code
+                LEFT JOIN public.tab_product_master p
+                    ON t.product_id = p.product_id
+                   AND p.company_id = h.company_id
+                LEFT JOIN public.tab_party_master pm
+                    ON h.party_id = pm.party_id
+                   AND pm.company_id = h.company_id
+                WHERE h.company_id = @p_company_id
+                  AND COALESCE(h.delete_flag, FALSE) = FALSE
+                  AND COALESCE(t.delete_flag, FALSE) = FALSE
+                  AND LOWER(TRIM(h.inv_type)) = 'sales'
+                  AND h.inv_date::date BETWEEN @p_from_date AND @p_to_date
+                  AND (@p_fiscal_year_id IS NULL OR h.fiscal_year_id = @p_fiscal_year_id)
+                  AND (
+                        (@p_filter_type = 'below_cost'
+                            AND COALESCE(p.cost_price, 0) > 0
+                            AND COALESCE(t.rate, 0) < COALESCE(p.cost_price, 0))
+                     OR (@p_filter_type = 'below_sale_price'
+                            AND COALESCE(p.selling_price, 0) > 0
+                            AND COALESCE(t.rate, 0) < COALESCE(p.selling_price, 0))
+                     OR (@p_filter_type NOT IN ('below_cost', 'below_sale_price')
+                            AND (
+                                (COALESCE(p.cost_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.cost_price, 0))
+                                OR (COALESCE(p.selling_price, 0) > 0 AND COALESCE(t.rate, 0) < COALESCE(p.selling_price, 0))
+                            ))
+                  )
+                ORDER BY h.inv_date DESC, h.inv_no, product_name";
+
+            var rows = await ExecuteReaderAsync(sql, cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+                cmd.Parameters.Add(new NpgsqlParameter("p_fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                {
+                    Value = (object?)_tenantProvider?.FiscalYearId ?? DBNull.Value
+                });
+                cmd.Parameters.Add(new NpgsqlParameter("p_filter_type", NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = string.IsNullOrWhiteSpace(filterType) ? "all" : filterType.Trim().ToLower()
+                });
+            }, reader => new BelowPriceSalesReportDTO
+            {
+                SpUniqueCode = SafeGetInt(reader, "sp_unique_code"),
+                InvDate = reader.GetDateTime(reader.GetOrdinal("inv_date")),
+                InvNo = SafeGetString(reader, "inv_no"),
+                PartyName = SafeGetString(reader, "party_name"),
+                ProductName = SafeGetString(reader, "product_name"),
+                Qty = reader.IsDBNull(reader.GetOrdinal("qty")) ? 0 : Convert.ToDecimal(reader["qty"]),
+                InvoiceRate = reader.IsDBNull(reader.GetOrdinal("invoice_rate")) ? 0 : Convert.ToDecimal(reader["invoice_rate"]),
+                CostPrice = reader.IsDBNull(reader.GetOrdinal("cost_price")) ? 0 : Convert.ToDecimal(reader["cost_price"]),
+                SellingPrice = reader.IsDBNull(reader.GetOrdinal("selling_price")) ? 0 : Convert.ToDecimal(reader["selling_price"]),
+                LossVsCost = reader.IsDBNull(reader.GetOrdinal("loss_vs_cost")) ? 0 : Convert.ToDecimal(reader["loss_vs_cost"]),
+                DiffVsSellingPrice = reader.IsDBNull(reader.GetOrdinal("diff_vs_selling_price")) ? 0 : Convert.ToDecimal(reader["diff_vs_selling_price"]),
+                IsBelowCost = !reader.IsDBNull(reader.GetOrdinal("is_below_cost")) && reader.GetBoolean(reader.GetOrdinal("is_below_cost")),
+                IsBelowSellingPrice = !reader.IsDBNull(reader.GetOrdinal("is_below_selling_price")) && reader.GetBoolean(reader.GetOrdinal("is_below_selling_price")),
+                AlertType = SafeGetString(reader, "alert_type")
+            }, CommandType.Text);
+
+            return rows;
+        }
+
     }
 }

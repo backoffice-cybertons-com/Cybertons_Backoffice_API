@@ -159,6 +159,66 @@ namespace SoftBook.Infrastructure.Repositories.Classes
       }, reader => MapToParty(reader));
     }
 
+    public async Task<Dictionary<string, PaymentTermLookupDto>> GetPaymentTermLookupAsync(int companyId)
+    {
+      var rows = await ExecuteReaderAsync(@"
+          SELECT term_id::TEXT AS term_id,
+                 term_name,
+                 number_of_days
+          FROM public.tab_payment_term_master
+          WHERE company_id = @p_company_id",
+        cmd => cmd.Parameters.AddWithValue("p_company_id", companyId),
+        reader => new
+        {
+          TermId = SafeGetString(reader, "term_id"),
+          TermName = SafeGetString(reader, "term_name"),
+          NumberOfDays = reader["number_of_days"] != DBNull.Value ? Convert.ToInt32(reader["number_of_days"]) : (int?)null
+        },
+        CommandType.Text);
+
+      var lookup = new Dictionary<string, PaymentTermLookupDto>(StringComparer.OrdinalIgnoreCase);
+      foreach (var row in rows)
+      {
+        var item = new PaymentTermLookupDto
+        {
+          TermName = row.TermName,
+          NumberOfDays = row.NumberOfDays
+        };
+
+        if (!string.IsNullOrWhiteSpace(row.TermId))
+        {
+          lookup[row.TermId] = item;
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.TermName) && !lookup.ContainsKey(row.TermName))
+        {
+          lookup[row.TermName] = item;
+        }
+      }
+
+      return lookup;
+    }
+
+    public async Task<bool> UpdateRateDiffAsync(int companyId, int partyId, decimal rateDiff)
+    {
+      var updatedPartyId = await ExecuteScalarAsync<int?>(@"
+          UPDATE public.tab_party_master
+          SET rate_diff = @p_rate_diff,
+              modified_on = CURRENT_TIMESTAMP
+          WHERE party_id = @p_party_id
+            AND company_id = @p_company_id
+          RETURNING party_id",
+        cmd =>
+        {
+          cmd.Parameters.AddWithValue("p_company_id", companyId);
+          cmd.Parameters.AddWithValue("p_party_id", partyId);
+          cmd.Parameters.AddWithValue("p_rate_diff", rateDiff);
+        },
+        CommandType.Text);
+
+      return updatedPartyId.HasValue && updatedPartyId.Value > 0;
+    }
+
     private Party MapToParty(Npgsql.NpgsqlDataReader reader)
     {
        return new Party

@@ -77,5 +77,7 @@ namespace SoftBook.Application.Services.Interfaces
         Task<List<DayBookReportDTO>> GetDayBookReportAsync(int companyId, DateTime fromDate, DateTime toDate);
         Task<List<CashBankBookReportDTO>> GetCashBookReportAsync(int companyId, DateTime fromDate, DateTime toDate);
         Task<List<CashBankBookReportDTO>> GetBankBookReportAsync(int companyId, DateTime fromDate, DateTime toDate);
+
+        Task<List<BelowPriceSalesReportDTO>> GetBelowPriceSalesReportAsync(int companyId, DateTime fromDate, DateTime toDate, string? filterType);
     }
 }

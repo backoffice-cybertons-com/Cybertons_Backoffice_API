@@ -583,6 +583,29 @@ namespace SoftBook.API.Controllers
             }
         }
 
+        [HttpGet("below-price-sales")]
+        public async Task<IActionResult> GetBelowPriceSalesReport(
+            [FromQuery] int companyId,
+            [FromQuery] DateTime fromDate,
+            [FromQuery] DateTime toDate,
+            [FromQuery] string? filterType)
+        {
+            try
+            {
+                if (companyId == 0)
+                {
+                    return BadRequest("Company context not found.");
+                }
+
+                var result = await _reportService.GetBelowPriceSalesReportAsync(companyId, fromDate, toDate, filterType);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
 
 
         [HttpGet("daily-outstanding-report")]

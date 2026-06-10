@@ -747,5 +747,10 @@ namespace SoftBook.Application.Services.Classes
         {
             return await _reportRepository.GetBankBookReportAsync(companyId, fromDate, toDate);
         }
+
+        public async Task<List<BelowPriceSalesReportDTO>> GetBelowPriceSalesReportAsync(int companyId, DateTime fromDate, DateTime toDate, string? filterType)
+        {
+            return await _reportRepository.GetBelowPriceSalesReportAsync(companyId, fromDate, toDate, filterType);
+        }
     }
 }

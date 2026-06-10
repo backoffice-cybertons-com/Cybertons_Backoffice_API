@@ -8,6 +8,8 @@ using SoftBook.Domain.ViewModels;
 using SoftBook.Application.Services.Interfaces;
 using SoftBook.Domain.RepositoryInterfaces;
 using SoftBook.Domain.DTOs;
+using SoftBook.Domain.Services.Interfaces;
+using SoftBook.API.Helpers;
 
 namespace SoftBook.API.Controllers
 {
@@ -16,11 +18,16 @@ namespace SoftBook.API.Controllers
     {
         private readonly IPurchaseTransactionService _purchaseTransactionService;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IAuditLogService _auditLogService;
 
-        public PurchaseTransactionController(IPurchaseTransactionService purchaseTransactionService, ITenantProvider tenantProvider)
+        public PurchaseTransactionController(
+            IPurchaseTransactionService purchaseTransactionService,
+            ITenantProvider tenantProvider,
+            IAuditLogService auditLogService)
         {
             _purchaseTransactionService = purchaseTransactionService;
             _tenantProvider = tenantProvider;
+            _auditLogService = auditLogService;
         }
 
         private int GetCompanyId()
@@ -55,11 +62,23 @@ namespace SoftBook.API.Controllers
             }
 
             viewModel.Header.CompanyId = GetCompanyId();
+            var isNew = viewModel.Header.SpUniqueCode <= 0;
             var result = await _purchaseTransactionService.SaveCompositeAsync(viewModel);
             if (!result.Success)
             {
                 return BadRequest(result);
             }
+
+            var spUniqueCode = viewModel.Header.SpUniqueCode > 0
+                ? viewModel.Header.SpUniqueCode
+                : TryParseSpUniqueCode(result);
+            await SystemLogHelper.LogSalePurActionAsync(
+                _auditLogService,
+                _tenantProvider,
+                User,
+                isNew ? "Add" : "Edit",
+                spUniqueCode);
+
             return Ok(result);
         }
 
@@ -72,7 +91,35 @@ namespace SoftBook.API.Controllers
             {
                 return BadRequest(result);
             }
+
+            await SystemLogHelper.LogSalePurActionAsync(
+                _auditLogService,
+                _tenantProvider,
+                User,
+                "Delete",
+                id);
+
             return Ok(result);
+        }
+
+        private static int? TryParseSpUniqueCode(DbResult result)
+        {
+            if (result?.Data == null)
+            {
+                return null;
+            }
+
+            if (result.Data is int intId)
+            {
+                return intId;
+            }
+
+            if (int.TryParse(result.Data.ToString(), out int parsed))
+            {
+                return parsed;
+            }
+
+            return null;
         }
     }
 }

@@ -109,15 +109,17 @@ namespace SoftBook.API.Controllers
             // For now, let's assume client sends the same structure or we extract from context if auth header exists.
             
             // To be robust, we should get ID from claims if authorized.
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var usernameClaim = User.FindFirst(ClaimTypes.Name)?.Value;
-            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
+            var userId = ResolveUserIdFromClaims(User) ?? 0;
+            var username = User.FindFirst(ClaimTypes.Name)?.Value
+                ?? User.FindFirst("name")?.Value
+                ?? request.EmailUsername
+                ?? "Unknown";
+            var companyId = ResolveCompanyIdFromClaims(User) ?? request.CompanyId;
 
-            int userId = userIdClaim != null ? int.Parse(userIdClaim) : 0;
-            string username = usernameClaim ?? request.EmailUsername ?? "Unknown";
-            int companyId = companyIdClaim != null ? int.Parse(companyIdClaim) : request.CompanyId;
-
-            await _auditLogService.LogActionAsync("Logout", userId, username, companyId);
+            if (userId > 0 && companyId > 0)
+            {
+                await _auditLogService.LogActionAsync("Logout", userId, username, companyId);
+            }
             return Ok(new { message = "Logged out successfully" });
         }
 
@@ -208,6 +210,22 @@ namespace SoftBook.API.Controllers
         {
             await _userService.DeleteAsync(id);
             return Ok();
+        }
+
+        private static int? ResolveUserIdFromClaims(ClaimsPrincipal user)
+        {
+            var claim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? user.FindFirst("sub")?.Value
+                ?? user.FindFirst("nameid")?.Value
+                ?? user.FindFirst("UserId")?.Value;
+
+            return int.TryParse(claim, out var id) ? id : null;
+        }
+
+        private static int? ResolveCompanyIdFromClaims(ClaimsPrincipal user)
+        {
+            var claim = user.FindFirst("CompanyId")?.Value ?? user.FindFirst("TenantId")?.Value;
+            return int.TryParse(claim, out var id) ? id : null;
         }
 
         private string GenerateJwtToken(User user, int tenantId)

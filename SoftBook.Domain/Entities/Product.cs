@@ -81,5 +81,7 @@ namespace SoftBook.Domain.Entities
     public decimal? ReOrderQuantity { get; set; }
 
     public int? TaxExemptionId { get; set; }
+
+    public DateTime? CreatedOn { get; set; }
   }
 }

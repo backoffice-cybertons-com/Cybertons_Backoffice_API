@@ -143,7 +143,8 @@ builder.Services.AddScoped<INotificationRealtimeNotifier, NotificationHubNotifie
 
 // Register Repositories
 // Register Audit Log Service
-builder.Services.AddScoped<IAuditLogService, CsvAuditLogService>();
+builder.Services.AddScoped<ISystemLogRepository, SystemLogRepository>();
+builder.Services.AddScoped<IAuditLogService, DbAuditLogService>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -178,6 +179,7 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IPartyService, PartyService>();
+builder.Services.AddScoped<IPartyRateAdjustmentService, PartyRateAdjustmentService>();
 builder.Services.AddScoped<IPartyAddressService, PartyAddressService>();
 builder.Services.AddScoped<IPartyBankDetailsService, PartyBankDetailsService>();
 builder.Services.AddScoped<IPartyContactPersonService, PartyContactPersonService>();

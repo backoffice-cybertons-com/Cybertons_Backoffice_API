@@ -5,7 +5,7 @@ namespace SoftBook.Domain.DTOs
     public class DashboardRequestDto
     {
         public int CompanyId { get; set; }
-        public string? FilterType { get; set; } // TODAY / THIS_WEEK / THIS_MONTH / THIS_YEAR
+        public string? FilterType { get; set; } // YESTERDAY / TODAY / THIS_WEEK / THIS_MONTH / PREV_MONTH / THIS_YEAR
         public DateTime? FromDate { get; set; }
         public DateTime? ToDate { get; set; }
         public int? BranchId { get; set; }

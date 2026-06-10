@@ -51,8 +51,8 @@ namespace SoftBook.API.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex,
-                        "[ReminderService] Unhandled error in polling cycle. Will retry next interval.");
+                    //_logger.LogError(ex,
+                    //    "[ReminderService] Unhandled error in polling cycle. Will retry next interval.");
                 }
 
                 await Task.Delay(PollingInterval, stoppingToken);
@@ -76,8 +76,8 @@ namespace SoftBook.API.Services
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                _logger.LogInformation(">>> Processing Company: {CompanyName} (ID: {CompanyId}) | DB: {DbName}", 
-                    company.Name, company.Id, GetDbNameFromConnectionString(company.ConnectionString));
+                //_logger.LogInformation(">>> Processing Company: {CompanyName} (ID: {CompanyId}) | DB: {DbName}", 
+                //    company.Name, company.Id, GetDbNameFromConnectionString(company.ConnectionString));
 
                 try
                 {
@@ -109,7 +109,7 @@ namespace SoftBook.API.Services
 
                         if (!task.AssignedUserId.HasValue)
                         {
-                            _logger.LogWarning("[ReminderService]     - Task {TaskId} has no assigned user — skipping.", task.TaskId);
+                           // _logger.LogWarning("[ReminderService]     - Task {TaskId} has no assigned user — skipping.", task.TaskId);
                             continue;
                         }
 
@@ -146,8 +146,8 @@ namespace SoftBook.API.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[ReminderService] Critical error processing tenant {CompanyName} (ID: {CompanyId}). Skipping to next tenant.", 
-                        company.Name, company.Id);
+                  //  _logger.LogError(ex, "[ReminderService] Critical error processing tenant {CompanyName} (ID: {CompanyId}). Skipping to next tenant.", 
+                   //     company.Name, company.Id);
                 }
             }
 

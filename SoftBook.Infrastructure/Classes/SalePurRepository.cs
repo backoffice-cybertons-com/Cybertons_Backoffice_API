@@ -741,5 +741,134 @@ namespace SoftBook.Infrastructure.Classes
 			}
 			return 0;
 		}
+
+		public async Task<decimal> GetPartyLast7DaysSalesTotalAsync(int companyId, int partyId)
+		{
+			return await GetPartyLast7DaysSalesTotalAsOfDateAsync(companyId, partyId, DateTime.Today);
+		}
+
+		public async Task<decimal> GetPartyLast7DaysSalesTotalAsOfDateAsync(int companyId, int partyId, DateTime asOfDate)
+		{
+			var result = await ExecuteScalarAsync<object>(@"
+                SELECT COALESCE(SUM(grand_total), 0)
+                FROM public.tab_sale_pur
+                WHERE company_id = @p_company_id
+                  AND party_id = @p_party_id
+                  AND LOWER(TRIM(inv_type)) = 'sales'
+                  AND inv_date::date BETWEEN (@p_as_of_date - INTERVAL '6 day')::date AND @p_as_of_date::date
+                  AND COALESCE(delete_flag, FALSE) = FALSE
+                  AND (@p_fiscal_year_id IS NULL OR fiscal_year_id = @p_fiscal_year_id)",
+			cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+				cmd.Parameters.AddWithValue("p_party_id", partyId);
+				cmd.Parameters.Add(new NpgsqlParameter("p_as_of_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = asOfDate.Date });
+				cmd.Parameters.Add(new NpgsqlParameter("p_fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer)
+				{
+					Value = (object?)_tenantProvider?.FiscalYearId ?? DBNull.Value
+				});
+			}, CommandType.Text);
+
+			if (result != null && result != DBNull.Value)
+			{
+				if (result is decimal d) return d;
+				if (decimal.TryParse(result.ToString(), out decimal parsed)) return parsed;
+			}
+			return 0;
+		}
+
+		public async Task<List<SalesInvoiceAddPriceCheckDto>> GetSalesInvoicesForAddPriceCheckAsync(
+			int companyId,
+			DateTime fromDate,
+			DateTime toDate,
+			string? partyType = null)
+		{
+			return await ExecuteReaderAsync(@"
+                SELECT
+                    sp.sp_unique_code,
+                    COALESCE(sp.inv_no, '') AS inv_no,
+                    sp.inv_date,
+                    sp.due_date,
+                    sp.party_id,
+                    COALESCE(pm.display_name, '') AS display_name,
+                    COALESCE(pm.party_type, '') AS party_type,
+                    COALESCE(line_adj.actual_add_price, sp.rate_diff, 0) AS actual_add_price
+                FROM public.tab_sale_pur sp
+                INNER JOIN public.tab_party_master pm
+                    ON pm.party_id = sp.party_id
+                   AND pm.company_id = sp.company_id
+                LEFT JOIN LATERAL (
+                    SELECT MAX(COALESCE(t.rate_diff, 0)) AS actual_add_price
+                    FROM public.tab_sal_pur_tran t
+                    WHERE t.sp_unique_code = sp.sp_unique_code
+                      AND COALESCE(t.delete_flag, FALSE) = FALSE
+                ) line_adj ON TRUE
+                WHERE sp.company_id = @p_company_id
+                  AND LOWER(TRIM(sp.inv_type)) = 'sales'
+                  AND sp.inv_date::date BETWEEN @p_from_date AND @p_to_date
+                  AND COALESCE(sp.delete_flag, FALSE) = FALSE
+                  AND (@p_party_type IS NULL OR pm.party_type = ANY(string_to_array(@p_party_type, ',')))
+                  AND (@p_fiscal_year_id IS NULL OR sp.fiscal_year_id = @p_fiscal_year_id)
+                ORDER BY sp.inv_date DESC, sp.sp_unique_code DESC",
+			cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+				cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate.Date });
+				cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate.Date });
+				cmd.Parameters.AddWithValue("p_party_type", (object?)partyType ?? DBNull.Value);
+				cmd.Parameters.Add(new NpgsqlParameter("p_fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer)
+				{
+					Value = (object?)_tenantProvider?.FiscalYearId ?? DBNull.Value
+				});
+			},
+			reader => new SalesInvoiceAddPriceCheckDto
+			{
+				SpUniqueCode = Convert.ToInt32(reader["sp_unique_code"]),
+				InvNo = reader["inv_no"]?.ToString() ?? string.Empty,
+				InvDate = Convert.ToDateTime(reader["inv_date"]),
+				DueDate = reader["due_date"] == DBNull.Value ? null : Convert.ToDateTime(reader["due_date"]),
+				PartyId = Convert.ToInt32(reader["party_id"]),
+				DisplayName = reader["display_name"]?.ToString() ?? string.Empty,
+				PartyType = reader["party_type"]?.ToString() ?? string.Empty,
+				ActualAddPrice = reader["actual_add_price"] != DBNull.Value ? Convert.ToDecimal(reader["actual_add_price"]) : 0
+			},
+			CommandType.Text);
+		}
+
+		public async Task<decimal> GetAddPriceForDueDaysAsync(int companyId, decimal avgOutstandingDays)
+		{
+			var lookup = await GetAddPriceLookupForDueDaysAsync(companyId, avgOutstandingDays);
+			return lookup.AddPrice;
+		}
+
+		public async Task<AddPriceLookupDto> GetAddPriceLookupForDueDaysAsync(int companyId, decimal avgOutstandingDays)
+		{
+			var rows = await ExecuteReaderAsync(@"
+                SELECT COALESCE(ap.add_price, 0) AS add_price,
+                       COALESCE(ap.from_due, 0) AS from_due,
+                       COALESCE(ap.to_due, 0) AS to_due
+                FROM public.tab_add_price ap
+                WHERE @p_avg_os_days >= ap.from_due
+                  AND @p_avg_os_days <= ap.to_due
+                  AND (ap.company_id IS NULL OR ap.company_id = @p_company_id)
+                ORDER BY ap.rowid
+                LIMIT 1",
+			cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+				cmd.Parameters.AddWithValue("p_avg_os_days", avgOutstandingDays);
+			},
+			reader => new AddPriceLookupDto
+			{
+				AddPrice = reader["add_price"] != DBNull.Value ? Convert.ToDecimal(reader["add_price"]) : 0,
+				FromDue = reader["from_due"] != DBNull.Value ? Convert.ToDecimal(reader["from_due"]) : 0,
+				ToDue = reader["to_due"] != DBNull.Value ? Convert.ToDecimal(reader["to_due"]) : 0
+			},
+			CommandType.Text);
+
+			return rows.Count > 0
+				? rows[0]
+				: new AddPriceLookupDto();
+		}
 	}
 }

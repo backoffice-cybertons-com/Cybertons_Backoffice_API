@@ -26,7 +26,7 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
-        public async Task LogActionAsync(string action, int userId, string username, int companyId)
+        public async Task LogActionAsync(string action, int userId, string username, int companyId, string? moduleName = null, int? recordId = null)
         {
             try 
             {

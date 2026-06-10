@@ -15,6 +15,8 @@ namespace SoftBook.Domain.RepositoryInterfaces
     Task<DbResult> UpdateAsync(Party party, int? userId = null);
     Task<DbResult> DeleteAsync(int id, int? userId = null);
     Task<List<Party>> GetByPartyTypeAsync(string partyType);
+    Task<bool> UpdateRateDiffAsync(int companyId, int partyId, decimal rateDiff);
+    Task<Dictionary<string, PaymentTermLookupDto>> GetPaymentTermLookupAsync(int companyId);
   }
 }
 // Customer, Vendor, Trader

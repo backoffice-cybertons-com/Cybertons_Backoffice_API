@@ -191,5 +191,25 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 cmd.Parameters.AddWithValue("p_user_id", id);
             });
         }
+
+        public async Task<string?> GetUserRoleNameAsync(int userId, int companyId)
+        {
+            var result = await ExecuteScalarAsync<object>(@"
+                SELECT rm.role_name
+                FROM public.tab_user_role ur
+                INNER JOIN public.tab_role_master rm ON rm.role_id = ur.role_id
+                WHERE ur.user_id = @p_user_id
+                  AND ur.company_id = @p_company_id
+                ORDER BY rm.role_id
+                LIMIT 1",
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("p_user_id", userId);
+                    cmd.Parameters.AddWithValue("p_company_id", companyId);
+                },
+                CommandType.Text);
+
+            return result?.ToString();
+        }
     }
 }
