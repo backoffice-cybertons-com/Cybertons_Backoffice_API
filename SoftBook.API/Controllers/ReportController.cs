@@ -570,11 +570,11 @@ namespace SoftBook.API.Controllers
 
         // Developed by Hetak on 11-05-2026
         [HttpGet("stock-ledger-datewise")]
-        public async Task<IActionResult> GetStockLedgerDatewise([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        public async Task<IActionResult> GetStockLedgerDatewise([FromQuery] int companyId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int? productId)
         {
             try
             {
-                var result = await _reportService.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate);
+                var result = await _reportService.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate, productId);
                 return Ok(result);
             }
             catch (Exception ex)

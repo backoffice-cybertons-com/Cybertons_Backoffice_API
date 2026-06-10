@@ -1496,17 +1496,18 @@ namespace SoftBook.Infrastructure.Classes
         }
 
         // Developed by Hetak on 11-05-2026
-        public async Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate)
+        public async Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate, int? productId = null)
         {
             try
             {
                 return await ExecuteReaderAsync(
-                    "SELECT * FROM fn_stock_ledger_datewise_report(@p_company_id, @p_from_date, @p_to_date)",
+                    "SELECT * FROM fn_stock_ledger_datewise_report(@p_company_id, @p_from_date, @p_to_date, @p_product_id)",
                     cmd =>
                     {
                         cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId });
                         cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate });
                         cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate });
+                        cmd.Parameters.Add(new NpgsqlParameter("p_product_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = (object?)productId ?? DBNull.Value });
                     },
                     reader =>
                     {

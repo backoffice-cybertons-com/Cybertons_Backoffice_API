@@ -719,9 +719,9 @@ namespace SoftBook.Application.Services.Classes
         }
 
         // Developed by Hetak on 11-05-2026
-        public async Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate)
+        public async Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate, int? productId = null)
         {
-            return await _reportRepository.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate);
+            return await _reportRepository.GetStockLedgerDatewiseAsync(companyId, fromDate, toDate, productId);
         }
 
         //by diyta 05-08

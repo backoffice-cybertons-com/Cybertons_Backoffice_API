@@ -68,7 +68,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
         Task<List<StockSummaryReportDTO>> GetStockSummaryReportAsync(int companyId, DateTime fromDate, DateTime toDate);
 
         // Developed by Hetak on 11-05-2026
-        Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate);
+        Task<IEnumerable<StockLedgerDatewiseDTO>> GetStockLedgerDatewiseAsync(int companyId, DateTime fromDate, DateTime toDate, int? productId = null);
 
         //by diya 05-08
         Task<IEnumerable<SalePurchaseRegisterTransactionwiseDTO>> GetSalePurchaseRegisterTransactionWise(int companyId, string? invType, string? where);
