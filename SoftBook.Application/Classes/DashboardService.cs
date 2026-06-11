@@ -1,4 +1,5 @@
 using SoftBook.Application.Interfaces;
+using SoftBook.Domain.Helpers;
 using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
 using System;
@@ -27,68 +28,7 @@ namespace SoftBook.Application.Classes
 
         public async Task<string> GetDashboardDataAsync(DashboardRequestDto request)
         {
-            // Resolve filterType if provided
-            if (!string.IsNullOrEmpty(request.FilterType))
-            {
-                var today = DateTime.Today;
-                switch (request.FilterType.ToUpper())
-                {
-                    case "YESTERDAY":
-                        var yesterday = today.AddDays(-1);
-                        request.FromDate = yesterday;
-                        request.ToDate = yesterday;
-                        request.Granularity ??= "daily";
-                        break;
-
-                    case "TODAY":
-                        request.FromDate = today;
-                        request.ToDate = today;
-                        request.Granularity ??= "daily";
-                        break;
-
-                    case "THIS_WEEK":
-                        // Week starts on Monday
-                        int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
-                        request.FromDate = today.AddDays(-1 * diff).Date;
-                        request.ToDate = today;
-                        request.Granularity ??= "daily";
-                        break;
-
-                    case "THIS_MONTH":
-                        request.FromDate = new DateTime(today.Year, today.Month, 1);
-                        request.ToDate = today;
-                        request.Granularity ??= "daily";
-                        break;
-
-                    case "PREV_MONTH":
-                        var prevMonthFirst = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
-                        request.FromDate = prevMonthFirst;
-                        request.ToDate = prevMonthFirst.AddMonths(1).AddDays(-1);
-                        request.Granularity ??= "daily";
-                        break;
-
-                    case "THIS_YEAR":
-                        request.FromDate = new DateTime(today.Year, 1, 1);
-                        request.ToDate = today;
-                        request.Granularity ??= "monthly";
-                        break;
-                }
-            }
-
-            // For CUSTOM filter (no filterType, both dates provided), auto-detect granularity
-            if (string.IsNullOrEmpty(request.FilterType) && request.FromDate.HasValue && request.ToDate.HasValue)
-            {
-                if (request.Granularity == null)
-                {
-                    var span = (request.ToDate.Value - request.FromDate.Value).TotalDays;
-                    if (span <= 31)
-                        request.Granularity = "daily";
-                    else if (span <= 366)
-                        request.Granularity = "monthly";
-                    else
-                        request.Granularity = "yearly";
-                }
-            }
+            ApplyDashboardDateRange(request);
 
             // Apply defaults if still null
             request.ZoneType ??= "ALL";
@@ -99,7 +39,7 @@ namespace SoftBook.Application.Classes
             // If fromDate/toDate are still null, default to THIS_MONTH
             if (request.FromDate == null || request.ToDate == null)
             {
-                var today = DateTime.Today;
+                var today = DashboardDateHelper.GetBusinessToday();
                 request.FromDate = new DateTime(today.Year, today.Month, 1);
                 request.ToDate = today;
             }
@@ -162,8 +102,10 @@ namespace SoftBook.Application.Classes
 
             try
             {
-                var today = DateTime.Today;
-                var mastersJson = await _dashboardRepository.GetMastersCreatedAsync(request.CompanyId, today, today);
+                var mastersJson = await _dashboardRepository.GetMastersCreatedAsync(
+                    request.CompanyId,
+                    request.FromDate!.Value.Date,
+                    request.ToDate!.Value.Date);
                 dashboardJson = MergeNewMasters(dashboardJson, mastersJson);
             }
             catch
@@ -190,6 +132,94 @@ namespace SoftBook.Application.Classes
             }
 
             return dashboardJson;
+        }
+
+        private static void ApplyDashboardDateRange(DashboardRequestDto request)
+        {
+            if (request.FromDate.HasValue && request.ToDate.HasValue)
+            {
+                request.FromDate = request.FromDate.Value.Date;
+                request.ToDate = request.ToDate.Value.Date;
+
+                if (request.Granularity == null)
+                {
+                    request.Granularity = InferGranularity(
+                        request.FromDate.Value,
+                        request.ToDate.Value,
+                        request.FilterType);
+                }
+
+                return;
+            }
+
+            if (string.IsNullOrEmpty(request.FilterType))
+            {
+                return;
+            }
+
+            var today = DashboardDateHelper.GetBusinessToday();
+            switch (request.FilterType.ToUpper())
+            {
+                case "YESTERDAY":
+                    var yesterday = today.AddDays(-1);
+                    request.FromDate = yesterday;
+                    request.ToDate = yesterday;
+                    request.Granularity ??= "daily";
+                    break;
+
+                case "TODAY":
+                    request.FromDate = today;
+                    request.ToDate = today;
+                    request.Granularity ??= "daily";
+                    break;
+
+                case "THIS_WEEK":
+                    var diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+                    request.FromDate = today.AddDays(-1 * diff).Date;
+                    request.ToDate = today;
+                    request.Granularity ??= "daily";
+                    break;
+
+                case "THIS_MONTH":
+                    request.FromDate = new DateTime(today.Year, today.Month, 1);
+                    request.ToDate = today;
+                    request.Granularity ??= "daily";
+                    break;
+
+                case "PREV_MONTH":
+                    var prevMonthFirst = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+                    request.FromDate = prevMonthFirst;
+                    request.ToDate = prevMonthFirst.AddMonths(1).AddDays(-1);
+                    request.Granularity ??= "daily";
+                    break;
+
+                case "THIS_YEAR":
+                    request.FromDate = new DateTime(today.Year, 1, 1);
+                    request.ToDate = today;
+                    request.Granularity ??= "monthly";
+                    break;
+            }
+        }
+
+        private static string InferGranularity(DateTime fromDate, DateTime toDate, string? filterType)
+        {
+            if (string.Equals(filterType, "THIS_YEAR", StringComparison.OrdinalIgnoreCase))
+            {
+                return "monthly";
+            }
+
+            var span = (toDate - fromDate).TotalDays;
+            if (span <= 31)
+            {
+                return "daily";
+            }
+
+            if (span <= 366)
+            {
+                return "monthly";
+            }
+
+            return "yearly";
         }
 
         private static string MergeDashboardJson(string dashboardJson, string goodsJson)

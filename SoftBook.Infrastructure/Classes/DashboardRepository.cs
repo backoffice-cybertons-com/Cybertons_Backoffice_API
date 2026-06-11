@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Npgsql;
+using SoftBook.Domain.Helpers;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
@@ -213,11 +214,11 @@ namespace SoftBook.Infrastructure.Classes
         public async Task<string> GetTransactionSummaryAsync(DashboardRequestDto request)
         {
             const string sql = @"
-                WITH purchase_entries AS (
+                WITH                 purchase_entries AS (
                     SELECT h.sp_unique_code::text AS entry_key
                     FROM public.tab_sale_pur h
                     WHERE h.company_id = @p_company_id
-                      AND h.delete_flag = FALSE
+                      AND COALESCE(h.delete_flag, FALSE) = FALSE
                       AND LOWER(TRIM(h.inv_type)) = 'purchase'
                       AND h.inv_date::date BETWEEN @p_from_date AND @p_to_date
                       AND (@p_fiscal_year_id IS NULL OR h.fiscal_year_id = @p_fiscal_year_id)
@@ -226,7 +227,7 @@ namespace SoftBook.Infrastructure.Classes
                     SELECT h.sp_unique_code::text AS entry_key
                     FROM public.tab_sale_pur h
                     WHERE h.company_id = @p_company_id
-                      AND h.delete_flag = FALSE
+                      AND COALESCE(h.delete_flag, FALSE) = FALSE
                       AND LOWER(TRIM(h.inv_type)) = 'sales'
                       AND h.inv_date::date BETWEEN @p_from_date AND @p_to_date
                       AND (@p_fiscal_year_id IS NULL OR h.fiscal_year_id = @p_fiscal_year_id)
@@ -235,7 +236,7 @@ namespace SoftBook.Infrastructure.Classes
                     SELECT j.g_code AS entry_key
                     FROM public.tab_jv j
                     WHERE j.jv_comp_code = @p_company_id
-                      AND j.delete_flag = FALSE
+                      AND COALESCE(j.delete_flag, FALSE) = FALSE
                       AND LOWER(TRIM(j.v_type)) = 'income'
                       AND j.jv_date::date BETWEEN @p_from_date AND @p_to_date
                       AND NULLIF(TRIM(j.g_code), '') IS NOT NULL
@@ -245,7 +246,7 @@ namespace SoftBook.Infrastructure.Classes
                     SELECT j.g_code AS entry_key
                     FROM public.tab_jv j
                     WHERE j.jv_comp_code = @p_company_id
-                      AND j.delete_flag = FALSE
+                      AND COALESCE(j.delete_flag, FALSE) = FALSE
                       AND LOWER(TRIM(j.v_type)) = 'expense'
                       AND j.jv_date::date BETWEEN @p_from_date AND @p_to_date
                       AND NULLIF(TRIM(j.g_code), '') IS NOT NULL
@@ -405,7 +406,7 @@ namespace SoftBook.Infrastructure.Classes
                     ), '[]'::json)
                 )";
 
-            var asOfDate = request.ToDate?.Date.AddDays(1) ?? DateTime.Today.AddDays(1);
+            var asOfDate = request.ToDate?.Date.AddDays(1) ?? DashboardDateHelper.GetBusinessToday().AddDays(1);
 
             return await ExecuteScalarAsync<string>(sql, cmd =>
             {

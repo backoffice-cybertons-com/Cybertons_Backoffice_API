@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SoftBook.Application.Interfaces;
+using SoftBook.Domain.Helpers;
 using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
 using System;
@@ -68,7 +69,7 @@ namespace SoftBook.API.Controllers
                 return Forbid();
             }
 
-            var to = (toDate ?? DateTime.Today).Date;
+            var to = (toDate ?? DashboardDateHelper.GetBusinessToday()).Date;
             var from = (fromDate ?? to).Date;
             if (from > to)
             {
