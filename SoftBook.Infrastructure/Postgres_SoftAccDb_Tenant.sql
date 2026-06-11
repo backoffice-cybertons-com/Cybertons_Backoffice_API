@@ -2558,8 +2558,9 @@ $function$;
 
 
 DROP FUNCTION IF EXISTS public.fn_stock_ledger_datewise_report(integer, date, date);
+DROP FUNCTION IF EXISTS public.fn_stock_ledger_datewise_report(integer, date, date, integer);
 
-CREATE OR REPLACE FUNCTION public.fn_stock_ledger_datewise_report(p_company_id integer, p_from_date date, p_to_date date)
+CREATE OR REPLACE FUNCTION public.fn_stock_ledger_datewise_report(p_company_id integer, p_from_date date, p_to_date date, p_product_id integer DEFAULT NULL)
  RETURNS TABLE(
     res_sr_no bigint, 
     res_tran_date date, 
@@ -2585,6 +2586,7 @@ WITH product_prices AS (
         COALESCE(pm.opening_quantity, 0) AS base_opening
     FROM tab_product_master pm
     WHERE pm.company_id = p_company_id
+      AND (p_product_id IS NULL OR p_product_id = 0 OR pm.product_id = p_product_id)
 ),
 opening_stock AS (
     SELECT
