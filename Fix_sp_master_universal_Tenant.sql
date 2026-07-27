@@ -1,0 +1,15 @@
+-- =============================================================================
+-- Fix duplicate / broken sp_master_universal on your TENANT database
+--
+-- Your login uses the DB from tab_company_master.connection_string (e.g. softaccdb_1),
+-- NOT the companymaster registry database.
+--
+-- Run this file in pgAdmin connected to the TENANT database:
+--   SoftBook.Infrastructure/sp_Master_Universal_Postgres.sql
+--
+-- Or run from the workspace to apply it to every enabled tenant DB:
+--   dotnet script apply_master_universal_to_tenants.csx
+--
+-- Then run (same tenant DB):
+--   Migration_Sales_Profit_Invoice.sql
+-- =============================================================================

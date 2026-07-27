@@ -59,6 +59,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 cmd.Parameters.AddWithValue("p_branch", bankDetails.Branch ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("p_micr", bankDetails.MICR ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("p_is_default", (object)bankDetails.IsDefault ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p_cancel_cheque_path", bankDetails.CancelChequePath ?? (object)DBNull.Value);
             });
 
             if (bankId != null) bankDetails.BankDetailId = Convert.ToInt32(bankId);
@@ -78,6 +79,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 cmd.Parameters.AddWithValue("p_branch", bankDetails.Branch ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("p_micr", bankDetails.MICR ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("p_is_default", (object)bankDetails.IsDefault ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p_cancel_cheque_path", bankDetails.CancelChequePath ?? (object)DBNull.Value);
             });
         }
 
@@ -103,6 +105,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 Branch = SafeGetString(reader, "branch"),
                 MICR = SafeGetString(reader, "micr"),
                 IsDefault = SafeGetBool(reader, "is_default"),
+                CancelChequePath = SafeGetString(reader, "cancel_cheque_path"),
                 CreatedOn = SafeGetDateTime(reader, "created_on")
             };
         }

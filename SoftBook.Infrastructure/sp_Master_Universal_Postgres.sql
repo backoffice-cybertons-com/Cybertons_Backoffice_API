@@ -74,11 +74,13 @@ BEGIN
         WHEN 'paymentmode', 'tabpaymentmodemaster', 'payment_mode', 'payment_mode_master', 'paymentmodes' THEN v_table_name := 'tab_payment_mode_master'; v_pk_name := 'payment_mode_id_internal';
         WHEN 'paymentterm', 'tabpaymenttermmaster', 'payment_term', 'payment_term_master', 'paymentterms' THEN v_table_name := 'tab_payment_term_master'; v_pk_name := 'term_id';
         WHEN 'outstandingtermcolorrules', 'outstanding_term_color_rules', 'outstanding-term-color-rules' THEN v_table_name := 'tab_outstanding_term_color_rules'; v_pk_name := 'rule_id';
+        WHEN 'addprice', 'addprices', 'tabaddprice', 'add_price', 'tab_add_price' THEN v_table_name := 'tab_add_price'; v_pk_name := 'rowid';
         WHEN 'productgroup', 'tabproductgroupmaster', 'product_group', 'productgroups' THEN v_table_name := 'tab_product_group_master'; v_pk_name := 'product_group_id';
         WHEN 'project', 'tabprojectmaster', 'project_master', 'projects' THEN v_table_name := 'tab_project_master'; v_pk_name := 'project_id';
         WHEN 'role', 'tabrolemaster', 'role_master', 'roles' THEN v_table_name := 'tab_role_master'; v_pk_name := 'role_id';
         WHEN 'salesperson', 'tabsalespersonmaster', 'salesperson_master', 'salespersons' THEN v_table_name := 'tab_salesperson_master'; v_pk_name := 'salesperson_id';
         WHEN 'transporter', 'tabtransportermaster', 'transporter_master', 'transporters' THEN v_table_name := 'tab_transporter_master'; v_pk_name := 'transporter_id';
+        WHEN 'zone', 'tabzonemaster', 'zone_master', 'zones', 'tab_zone_master' THEN v_table_name := 'tab_zone_master'; v_pk_name := 'zone_id';
         WHEN 'ledgersetting', 'ledger_settings', 'tab_ledger_settings' THEN v_table_name := 'tab_ledger_settings'; v_pk_name := 'setting_id';
         WHEN 'party', 'partymaster', 'tabpartymaster', 'party_master', 'parties' THEN v_table_name := 'tab_party_master'; v_pk_name := 'party_id';
         WHEN 'product', 'tabproductmaster', 'product_master', 'products' THEN v_table_name := 'tab_product_master'; v_pk_name := 'product_id';
@@ -128,13 +130,25 @@ BEGIN
                     LEFT JOIN tab_hsn_master h ON t.hsn_id = h.hsn_id AND t.company_id = h.company_id
                     WHERE t.company_id = %L
                 ) j', p_company_id);
+
+        ELSIF LOWER(p_master_name) IN ('addprice', 'addprices', 'tabaddprice', 'add_price', 'tab_add_price') THEN
+            -- Global rows (company_id IS NULL) plus company-specific overrides
+            RETURN QUERY EXECUTE format(
+                'SELECT row_to_json(t) FROM %I t WHERE (t.company_id IS NULL OR t.company_id = %L) ORDER BY t.from_due',
+                v_table_name, p_company_id);
        
        ELSE
             RETURN QUERY EXECUTE format('SELECT row_to_json(t) FROM %I t WHERE t.company_id = %L', v_table_name, p_company_id);
         END IF;
         
     ELSIF p_action = 'SELECT_BY_ID' THEN
-        RETURN QUERY EXECUTE format('SELECT row_to_json(t) FROM %I t WHERE t.%I = %L AND t.company_id = %L', v_table_name, v_pk_name, p_id, p_company_id);
+        IF LOWER(p_master_name) IN ('addprice', 'addprices', 'tabaddprice', 'add_price', 'tab_add_price') THEN
+            RETURN QUERY EXECUTE format(
+                'SELECT row_to_json(t) FROM %I t WHERE t.%I = %L AND (t.company_id IS NULL OR t.company_id = %L)',
+                v_table_name, v_pk_name, p_id, p_company_id);
+        ELSE
+            RETURN QUERY EXECUTE format('SELECT row_to_json(t) FROM %I t WHERE t.%I = %L AND t.company_id = %L', v_table_name, v_pk_name, p_id, p_company_id);
+        END IF;
     
     ELSIF p_action = 'SELECT_BY_FILTER' AND LOWER(p_master_name) IN ('taxgroupdetail', 'tabtaxgroupdetail', 'configuretax') THEN
         -- Special handling for TaxGroupDetail filtering by TaxGroupId
@@ -242,9 +256,15 @@ BEGIN
             END;
         END IF;
 
-        v_query := format('UPDATE %I SET (%s) = (SELECT %s FROM jsonb_populate_record(NULL::%I, %L)) 
-                          WHERE %I = %L AND company_id = %L RETURNING row_to_json(%I)', 
-                         v_table_name, v_column_list, v_column_list, v_table_name, p_json_data, v_pk_name, p_id, p_company_id, v_table_name);
+        IF LOWER(p_master_name) IN ('addprice', 'addprices', 'tabaddprice', 'add_price', 'tab_add_price') THEN
+            v_query := format('UPDATE %I SET (%s) = (SELECT %s FROM jsonb_populate_record(NULL::%I, %L)) 
+                              WHERE %I = %L AND (company_id IS NULL OR company_id = %L) RETURNING row_to_json(%I)', 
+                             v_table_name, v_column_list, v_column_list, v_table_name, p_json_data, v_pk_name, p_id, p_company_id, v_table_name);
+        ELSE
+            v_query := format('UPDATE %I SET (%s) = (SELECT %s FROM jsonb_populate_record(NULL::%I, %L)) 
+                              WHERE %I = %L AND company_id = %L RETURNING row_to_json(%I)', 
+                             v_table_name, v_column_list, v_column_list, v_table_name, p_json_data, v_pk_name, p_id, p_company_id, v_table_name);
+        END IF;
         
         RETURN QUERY EXECUTE v_query;
                        
@@ -257,7 +277,11 @@ BEGIN
             DELETE FROM tab_user_role WHERE user_id = p_id AND company_id = p_company_id;
         END IF;
 
-        EXECUTE format('DELETE FROM %I WHERE %I = %L AND company_id = %L', v_table_name, v_pk_name, p_id, p_company_id);
+        IF LOWER(p_master_name) IN ('addprice', 'addprices', 'tabaddprice', 'add_price', 'tab_add_price') THEN
+            EXECUTE format('DELETE FROM %I WHERE %I = %L AND (company_id IS NULL OR company_id = %L)', v_table_name, v_pk_name, p_id, p_company_id);
+        ELSE
+            EXECUTE format('DELETE FROM %I WHERE %I = %L AND company_id = %L', v_table_name, v_pk_name, p_id, p_company_id);
+        END IF;
         
         GET DIAGNOSTICS v_count = ROW_COUNT;
         IF v_count = 0 THEN

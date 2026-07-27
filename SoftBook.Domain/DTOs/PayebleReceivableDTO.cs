@@ -25,5 +25,12 @@ namespace SoftBook.Domain.DTOs
         public decimal Weekly { get; set; }
         public decimal Monthly { get; set; }
         public decimal MonthlyTerm { get; set; }
+
+        public string? Kam { get; set; }
+        public string? RecoveryAgent { get; set; }
+        public string? SumulIncharge { get; set; }
+        public string? ZoneName { get; set; }
+        public string? SalespersonName { get; set; }
+        public string? TransporterName { get; set; }
     }
 }

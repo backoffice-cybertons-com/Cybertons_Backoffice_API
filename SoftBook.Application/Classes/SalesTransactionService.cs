@@ -93,16 +93,29 @@ namespace SoftBook.Application.Services.Classes
             viewModel.Header.InvoiceTotal = viewModel.Lines.Sum(l => l.Amount);
             viewModel.Header.FinalInvoiceAmount = viewModel.Header.GrandTotal;
 
-            // Snapshot Cost Price for each line item from the Product Master
+            // Snapshot COGS, dealer price, and SP commission unit for each line item
+            var spCommUnit = await ResolveSpCommUnitAsync(
+                viewModel.Header.CompanyId,
+                viewModel.Header.PartyId,
+                viewModel.Header.InvDate);
+
             foreach (var line in viewModel.Lines)
             {
+                line.SpCommUnit = spCommUnit;
+
                 if (line.ProductId.HasValue)
                 {
                     var product = await _productRepository.GetByIdAsync(viewModel.Header.CompanyId, line.ProductId.Value);
                     if (product != null)
                     {
                         line.Cogs = product.CostPrice;
+                        line.DealerPrice = product.SellingPrice ?? (line.Rate - (line.RateDiff ?? 0));
                     }
+                }
+
+                if (!line.DealerPrice.HasValue || line.DealerPrice == 0)
+                {
+                    line.DealerPrice = line.Rate - (line.RateDiff ?? 0);
                 }
             }
 
@@ -214,6 +227,22 @@ namespace SoftBook.Application.Services.Classes
         public async Task<decimal> GetPartyOutstandingAsync(int companyId, int partyId)
         {
             return await _salePurRepository.GetPartyOutstandingAsync(companyId, partyId);
+        }
+
+        private async Task<decimal> ResolveSpCommUnitAsync(int companyId, int partyId, DateTime invoiceDate)
+        {
+            var last7DaysSales = await _salePurRepository.GetPartyLast7DaysSalesTotalAsOfDateAsync(
+                companyId, partyId, invoiceDate);
+            var outstanding = await _salePurRepository.GetPartyOutstandingBeforeDateAsync(
+                companyId, partyId, invoiceDate.Date);
+
+            var avgSalePerDay = last7DaysSales / 7m;
+            var avgOutstandingDays = avgSalePerDay > 0
+                ? Math.Max(0, outstanding / avgSalePerDay)
+                : 0m;
+
+            var lookup = await _salePurRepository.GetAddPriceLookupForDueDaysAsync(companyId, avgOutstandingDays);
+            return lookup.SalePerComission;
         }
     }
 }

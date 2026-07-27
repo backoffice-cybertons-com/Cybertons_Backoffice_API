@@ -56,6 +56,8 @@ namespace SoftBook.Application.Services.Interfaces
         Task<IEnumerable<LedgerSummaryDatewiseDTO>> GetLedgerSummaryDatewiseAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate);
 
 
+        Task<byte[]> GenerateGstCaReportExcelAsync(int companyId, DateTime fromDate, DateTime toDate);
+
         Task<byte[]> GenerateGstr1ExcelAsync( int companyId, DateOnly fromDate, DateOnly toDate);
 
         //by Diya 05/04

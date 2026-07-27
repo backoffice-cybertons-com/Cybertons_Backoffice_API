@@ -522,9 +522,25 @@ namespace SoftBook.API.Controllers
             );
         }
 
+        [HttpGet("gst-report-ca-export")]
+        public async Task<IActionResult> ExportGstReportCaExcel(
+            [FromQuery] int companyId,
+            [FromQuery] DateTime fromDate,
+            [FromQuery] DateTime toDate)
+        {
+            if (companyId == 0)
+            {
+                return BadRequest("Company context not found.");
+            }
 
+            var file = await _reportService.GenerateGstCaReportExcelAsync(companyId, fromDate, toDate);
 
-
+            return File(
+               file,
+               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+               $"GST_REPORT_CA_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.xlsx"
+            );
+        }
 
         ///reports/outstanding-comparison - Diya 05-05-2026
         [HttpGet("outstanding-comparison")]

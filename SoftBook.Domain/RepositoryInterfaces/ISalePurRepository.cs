@@ -44,11 +44,13 @@ namespace SoftBook.Domain.RepositoryInterfaces
 		Task<DbResult> DeleteAsync(int companyId, int spUniqueCode, int? userId = null);
 		Task<decimal> GetPartyOutstandingAsync(int companyId, int partyId);
 		Task<decimal> GetPartyOutstandingBeforeDateAsync(int companyId, int partyId, DateTime beforeDate);
+		Task<List<SoftBook.Domain.DTOs.PartyBulkSummaryDto>> GetPartyRateAdjustmentSummaryBulkAsync(int companyId, string partyType, DateTime asOfDate);
+		Task<List<AddPriceLookupDto>> GetAllAddPriceLookupsAsync(int companyId);
 		Task<decimal> GetTodaysReceiptAsync(int companyId, int partyId, DateTime date);
 		Task<decimal> GetTodaysInvoiceAmountAsync(int companyId, int partyId, DateTime date);
 		Task<decimal> GetPartyLast7DaysSalesTotalAsync(int companyId, int partyId);
 		Task<decimal> GetPartyLast7DaysSalesTotalAsOfDateAsync(int companyId, int partyId, DateTime asOfDate);
-		Task<List<SalesInvoiceAddPriceCheckDto>> GetSalesInvoicesForAddPriceCheckAsync(int companyId, DateTime fromDate, DateTime toDate, string? partyType = null);
+		Task<List<PartyInvoiceAddPriceMismatchDto>> GetSalesInvoiceAddPriceMismatchesAsync(int companyId, DateTime fromDate, DateTime toDate, string? partyType = null);
 		Task<decimal> GetAddPriceForDueDaysAsync(int companyId, decimal avgOutstandingDays);
 		Task<AddPriceLookupDto> GetAddPriceLookupForDueDaysAsync(int companyId, decimal avgOutstandingDays);
 

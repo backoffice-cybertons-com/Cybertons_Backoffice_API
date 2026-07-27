@@ -51,6 +51,32 @@ namespace SoftBook.Domain.Entities
     public string? Remarks { get; set; }
     public string? PartyProfile { get; set; }
     public decimal? RateDiff { get; set; }
+    public string? KamMobile { get; set; }
+    public string? RecoveryMobile { get; set; }
+    public string? SumulIncharge { get; set; }
+    [Column("sumul_incharge_mobile")]
+    public string? SumulInchargeMobile { get; set; }
+    public string? RetailerCode { get; set; }
+    public string? SumulDepoCode { get; set; }
+    
+    [Column("salesperson_id")]
+    public int? SalespersonId { get; set; }
+    [Column("salesperson_mobile")]
+    public string? SalespersonMobile { get; set; }
+    [Column("kam")]
+    public string? Kam { get; set; }
+    [Column("recovery_agent")]
+    public string? RecoveryAgent { get; set; }
+    [Column("transporter_id")]
+    public int? TransporterId { get; set; }
+    [Column("transporter_mobile")]
+    public string? TransporterMobile { get; set; }
+    [Column("zone_id")]
+    public int? ZoneId { get; set; }
+    
+    public string? PanDocPath { get; set; }
+    public string? AadhaarDocPath { get; set; }
+    public string? GstCertPath { get; set; }
     public DateTime? CreatedOn { get; set; }
     public DateTime? ModifiedOn { get; set; }
   }

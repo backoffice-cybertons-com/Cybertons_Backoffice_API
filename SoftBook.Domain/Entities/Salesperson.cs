@@ -15,5 +15,14 @@ namespace SoftBook.Domain.Entities
         
         public string? SalespersonName { get; set; }
         public string? Email { get; set; }
+        
+        [Column("gstin")]
+        public string? Gstin { get; set; }
+        [Column("contact_person")]
+        public string? ContactPerson { get; set; }
+        [Column("phone")]
+        public string? Phone { get; set; }
+        [Column("address")]
+        public string? Address { get; set; }
     }
 }

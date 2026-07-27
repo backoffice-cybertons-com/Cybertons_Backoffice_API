@@ -23,7 +23,8 @@ namespace SoftBook.Infrastructure.Repositories.Classes
         {
             // PostgreSQL function must be called via SELECT * FROM ...
             // Using named notation (:=) to be extra safe
-            string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
+            // p_user_id is required in the call so PostgreSQL picks the 6-arg overload (p_user_id has a default on the 5-arg duplicate).
+            string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data, p_user_id := @p_user_id)";
             
             Console.WriteLine($"[MasterRepository] GetAllAsync: masterName={masterName}, companyId={companyId ?? _tenantProvider?.CompanyId ?? 0}, userId={_tenantProvider?.UserId}");
             return await ExecuteReaderAsync(query, cmd =>
@@ -31,6 +32,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 cmd.Parameters.Add(new NpgsqlParameter("p_master_name", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = masterName });
                 cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId ?? _tenantProvider?.CompanyId ?? 0 });
                 cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = DBNull.Value });
+                cmd.Parameters.Add(new NpgsqlParameter("p_user_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = DBNull.Value });
 
                 if (filterId.HasValue)
                 {
@@ -47,7 +49,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         public async Task<dynamic?> GetByIdAsync(string masterName, int id, int? companyId = null)
         {
-            string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data)";
+            string query = "SELECT * FROM public.sp_master_universal(p_master_name := @p_master_name, p_action := @p_action, p_company_id := @p_company_id, p_id := @p_id, p_json_data := @p_json_data, p_user_id := @p_user_id)";
 
             return await ExecuteSingleReaderAsync(query, cmd =>
             {
@@ -56,6 +58,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
                 cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = companyId ?? _tenantProvider?.CompanyId ?? 0 });
                 cmd.Parameters.Add(new NpgsqlParameter("p_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
                 cmd.Parameters.Add(new NpgsqlParameter("p_json_data", NpgsqlTypes.NpgsqlDbType.Jsonb) { Value = DBNull.Value });
+                cmd.Parameters.Add(new NpgsqlParameter("p_user_id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = DBNull.Value });
             }, reader => MapToDynamic(reader), CommandType.Text);
         }
 

@@ -30,6 +30,7 @@ namespace SoftBook.Domain.Entities
         public string? Branch { get; set; }
         public string? MICR { get; set; }
         public bool? IsDefault { get; set; }
+        public string? CancelChequePath { get; set; }
         public DateTime? CreatedOn { get; set; }
     }
 }

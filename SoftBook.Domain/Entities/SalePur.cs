@@ -61,6 +61,10 @@ namespace SoftBook.Domain.Entities
         [Column("transporter_id")]
         public int? TransporterId { get; set; }
 
+        [Column("salesperson_id")]
+        [JsonPropertyName("salespersonId")]
+        public int? SalespersonId { get; set; }
+
         [Column("unit_id")]
         public int? UnitId { get; set; }
 

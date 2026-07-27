@@ -188,6 +188,7 @@ builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<ISalePurRepository, SalePurRepository>();
 builder.Services.AddScoped<IPurchaseTransactionService, PurchaseTransactionService>();
 builder.Services.AddScoped<ISalesTransactionService, SalesTransactionService>();
+builder.Services.AddScoped<IMobileOrderSyncService, MobileOrderSyncService>();
 builder.Services.AddScoped<IDeliveryChallanService, DeliveryChallanService>();
 builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 builder.Services.AddScoped<IJournalService, JournalService>();
@@ -229,6 +230,18 @@ app.UseSwaggerUI(c =>
 app.UseHttpsRedirection();
 Directory.CreateDirectory(Path.Combine(app.Environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads", "kanban", "covers"));
 app.UseStaticFiles();
+
+var uploadPath = Path.Combine(app.Environment.ContentRootPath, "Upload");
+if (!Directory.Exists(uploadPath))
+{
+    Directory.CreateDirectory(uploadPath);
+}
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadPath),
+    RequestPath = "/Upload"
+});
+
 app.UseCors("AllowBookUI");
 app.UseAuthentication();
 app.UseMiddleware<TenantMiddleware>();

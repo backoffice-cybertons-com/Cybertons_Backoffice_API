@@ -73,14 +73,16 @@ namespace SoftBook.Application.Classes
             string? partyType = "Customer,Trader",
             bool onlyWithAddPrice = true)
         {
-            var parties = await _partyRepository.GetByPartyTypeAsync(partyType ?? "Customer,Trader");
             var paymentTerms = await _partyRepository.GetPaymentTermLookupAsync(companyId);
+            var addPriceLookups = await _salePurRepository.GetAllAddPriceLookupsAsync(companyId);
             var summary = new List<PartyRateAdjustmentSummaryItemDto>();
 
-            foreach (var party in parties)
+            var bulkData = await _salePurRepository.GetPartyRateAdjustmentSummaryBulkAsync(companyId, partyType ?? "Customer,Trader", DateTime.Today);
+
+            foreach (var party in bulkData)
             {
-                var last7DaysSales = await _salePurRepository.GetPartyLast7DaysSalesTotalAsync(companyId, party.PartyId);
-                var outstanding = await _salePurRepository.GetPartyOutstandingAsync(companyId, party.PartyId);
+                var last7DaysSales = party.Last7DaysSalesTotal;
+                var outstanding = party.TotalOutstanding;
                 var avgSalePerDay = last7DaysSales / 7m;
                 decimal avgOutstandingDays = 0;
 
@@ -93,7 +95,10 @@ namespace SoftBook.Application.Classes
                     }
                 }
 
-                var addPriceLookup = await _salePurRepository.GetAddPriceLookupForDueDaysAsync(companyId, avgOutstandingDays);
+                // In-memory add price lookup
+                var addPriceLookup = addPriceLookups.FirstOrDefault(x => avgOutstandingDays >= x.FromDue && avgOutstandingDays <= x.ToDue) 
+                                     ?? new SoftBook.Domain.DTOs.AddPriceLookupDto();
+
                 paymentTerms.TryGetValue(party.PaymentTerms ?? string.Empty, out var paymentTerm);
 
                 var item = new PartyRateAdjustmentSummaryItemDto
@@ -110,20 +115,18 @@ namespace SoftBook.Application.Classes
                     FromDue = addPriceLookup.FromDue,
                     ToDue = addPriceLookup.ToDue,
                     AddPrice = addPriceLookup.AddPrice,
-                    StoredRateDiff = party.RateDiff ?? 0
+                    StoredRateDiff = party.StoredRateDiff
                 };
 
-                if (!onlyWithAddPrice || item.AddPrice > 0)
+                if (!onlyWithAddPrice || item.AddPrice > 0 || item.StoredRateDiff > 0)
                 {
                     summary.Add(item);
                 }
             }
 
-            return summary
-                .OrderByDescending(x => x.AddPrice)
-                .ThenBy(x => x.DisplayName)
-                .ToList();
+            return summary.OrderByDescending(x => x.TotalOutstanding).ToList();
         }
+
 
         public async Task<List<PartyRateAdjustmentChangeItemDto>> GetChangeListAsync(
             int companyId,
@@ -181,54 +184,8 @@ namespace SoftBook.Application.Classes
             DateTime toDate,
             string? partyType = "Customer,Trader")
         {
-            var invoices = await _salePurRepository.GetSalesInvoicesForAddPriceCheckAsync(
+            return await _salePurRepository.GetSalesInvoiceAddPriceMismatchesAsync(
                 companyId, fromDate, toDate, partyType);
-
-            var mismatches = new List<PartyInvoiceAddPriceMismatchDto>();
-            var calculationCache = new Dictionary<(int PartyId, DateTime InvDate), PartyRateAdjustmentResultDto>();
-
-            foreach (var invoice in invoices)
-            {
-                var cacheKey = (invoice.PartyId, invoice.InvDate.Date);
-                if (!calculationCache.TryGetValue(cacheKey, out var expected))
-                {
-                    expected = await CalculateAsOfDateAsync(companyId, invoice.PartyId, invoice.InvDate.Date);
-                    calculationCache[cacheKey] = expected;
-                }
-
-                var expectedAddPrice = expected.AddPrice;
-                var actualAddPrice = invoice.ActualAddPrice;
-
-                if (expectedAddPrice == actualAddPrice)
-                {
-                    continue;
-                }
-
-                mismatches.Add(new PartyInvoiceAddPriceMismatchDto
-                {
-                    SpUniqueCode = invoice.SpUniqueCode,
-                    InvNo = invoice.InvNo,
-                    InvDate = invoice.InvDate,
-                    DueDate = invoice.DueDate,
-                    PartyId = invoice.PartyId,
-                    DisplayName = invoice.DisplayName,
-                    PartyType = invoice.PartyType,
-                    ExpectedAddPrice = expectedAddPrice,
-                    ActualAddPrice = actualAddPrice,
-                    Difference = actualAddPrice - expectedAddPrice,
-                    TotalOutstanding = expected.TotalOutstanding,
-                    Last7DaysSalesTotal = expected.Last7DaysSalesTotal,
-                    AvgSalePerDay = expected.AvgSalePerDay,
-                    AvgOutstandingDays = expected.AvgOutstandingDays,
-                    FromDue = expected.FromDue,
-                    ToDue = expected.ToDue
-                });
-            }
-
-            return mismatches
-                .OrderByDescending(x => x.InvDate)
-                .ThenBy(x => x.DisplayName)
-                .ToList();
         }
 
         public async Task<PartyRateAdjustmentResultDto> CalculateAndUpdateAsync(int companyId, int partyId)

@@ -752,5 +752,268 @@ namespace SoftBook.Application.Services.Classes
         {
             return await _reportRepository.GetBelowPriceSalesReportAsync(companyId, fromDate, toDate, filterType);
         }
+
+        public async Task<byte[]> GenerateGstCaReportExcelAsync(int companyId, DateTime fromDate, DateTime toDate)
+        {
+            using var wb = new XLWorkbook();
+
+            // Use BETWEEN + correct inv_type values matching what the DB stores
+            var whereClause = $"tsp.inv_date BETWEEN '{fromDate:yyyy-MM-dd}' AND '{toDate:yyyy-MM-dd}'";
+
+            // Determine month label for sheet tab names: e.g., "Jun" if fromDate is in June
+            string monthLabel = fromDate.ToString("MMM");
+
+            // 1. Purchase Datewise  (invType = "Purchase")
+            var purDatewise = await _reportRepository.GetSalePurchaseRegisterDatewiseAsync(companyId, "Purchase", whereClause);
+            AddDatewiseSheet(wb, $"Pur_Reg_{monthLabel}_Datewise", "Purchase Register Report - Date Wise", purDatewise);
+
+            // 2. Purchase Invoicewise
+            var purInvwise = await _reportRepository.GetSalePurInvWiseAsync(companyId, "Purchase", whereClause);
+            AddInvwiseSheet(wb, $"Pur_Reg_{monthLabel}_Invoicewise", "Purchase Register Report - Invoice Wise", purInvwise);
+
+            // 3. Sale Datewise  (invType = "Sales" — DB stores 'Sales' not 'Sale')
+            var salDatewise = await _reportRepository.GetSalePurchaseRegisterDatewiseAsync(companyId, "Sales", whereClause);
+            AddDatewiseSheet(wb, $"Sal_Reg_{monthLabel}_Datewise", "Sale Register Report - Date Wise", salDatewise);
+
+            // 4. Sale Invoicewise
+            var salInvwise = await _reportRepository.GetSalePurInvWiseAsync(companyId, "Sales", whereClause);
+            AddInvwiseSheet(wb, $"Sal_Reg_{monthLabel}_Invoicewise", "Sale Register Report - Invoice Wise", salInvwise);
+
+            // 5. Purchase Itemwise
+            var purItemwise = await _reportRepository.GetSalePurchaseRegisterItemwiseAsync(companyId, "Purchase", whereClause);
+            AddItemwiseSheet(wb, $"Pur_Reg_{monthLabel}_Itemwise", "Purchase Register Report - Item Wise", purItemwise);
+
+            // 6. Sale Itemwise
+            var salItemwise = await _reportRepository.GetSalePurchaseRegisterItemwiseAsync(companyId, "Sales", whereClause);
+            AddItemwiseSheet(wb, $"Sale_Reg_{monthLabel}_Itemwise", "Sale Register Report - Item Wise", salItemwise);
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        }
+
+        // ─── Datewise Sheet ───────────────────────────────────────────────────────
+        private void AddDatewiseSheet(XLWorkbook wb, string sheetName, string title, IEnumerable<SalePurchaseRegisterDatewiseDTO> data)
+        {
+            var ws = wb.Worksheets.Add(sheetName);
+            int totalCols = 15;
+
+            // Row 1: Title (bold, merged, centered)
+            ws.Cell(1, 1).Value = title;
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 14;
+            ws.Range(1, 1, 1, totalCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            // Row 2: Subtitle
+            ws.Cell(2, 1).Value = "TOTAL TRADE";
+            ws.Cell(2, 1).Style.Font.Bold = true;
+            ws.Range(2, 1, 2, totalCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            // Row 3: blank
+            // Row 4: Column headers
+            string[] headers = { "Inv Date", "Inv Type", "Total Qty", "Avg Price", "Taxable Amount", "IGST", "CGST", "SGST", "Tax Amount", "Total Amount", "Exp Discount", "Round Off", "Final Amount", "Add Price", "Add Amount" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(4, i + 1).Value = headers[i];
+                ws.Cell(4, i + 1).Style.Font.Bold = true;
+                ws.Cell(4, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+
+            // Data rows from row 5
+            int row = 5;
+            foreach (var item in data)
+            {
+                ws.Cell(row, 1).Value = item.InvDate.ToString("dd/MM/yyyy");
+                ws.Cell(row, 2).Value = item.InvType;
+                ws.Cell(row, 3).Value = item.Qty;
+                ws.Cell(row, 4).Value = item.AvgPrice;
+                ws.Cell(row, 5).Value = item.TaxableAmount;
+                ws.Cell(row, 6).Value = item.IgstAmount;
+                ws.Cell(row, 7).Value = item.CgstAmount;
+                ws.Cell(row, 8).Value = item.SgstAmount;
+                ws.Cell(row, 9).Value = item.TaxAmount;
+                ws.Cell(row, 10).Value = item.TotalAmount;
+                ws.Cell(row, 11).Value = item.TotDiscount;
+                ws.Cell(row, 12).Value = item.RoundOff;
+                ws.Cell(row, 13).Value = item.FinalAmount;
+                ws.Cell(row, 14).Value = item.AddPrice;
+                ws.Cell(row, 15).Value = item.AddAmount;
+                row++;
+            }
+
+            // Overall Total row
+            var list = data.ToList();
+            if (list.Count > 0)
+            {
+                ws.Cell(row, 1).Value = "Overall Total";
+                ws.Cell(row, 1).Style.Font.Bold = true;
+                ws.Cell(row, 3).Value = list.Sum(x => x.Qty);
+                ws.Cell(row, 4).Value = list.Sum(x => x.Qty) > 0 ? list.Sum(x => x.TaxableAmount) / list.Sum(x => x.Qty) : 0;
+                ws.Cell(row, 5).Value = list.Sum(x => x.TaxableAmount);
+                ws.Cell(row, 6).Value = list.Sum(x => x.IgstAmount);
+                ws.Cell(row, 7).Value = list.Sum(x => x.CgstAmount);
+                ws.Cell(row, 8).Value = list.Sum(x => x.SgstAmount);
+                ws.Cell(row, 9).Value = list.Sum(x => x.TaxAmount);
+                ws.Cell(row, 10).Value = list.Sum(x => x.TotalAmount);
+                ws.Cell(row, 11).Value = list.Sum(x => x.TotDiscount);
+                ws.Cell(row, 12).Value = list.Sum(x => x.RoundOff);
+                ws.Cell(row, 13).Value = list.Sum(x => x.FinalAmount);
+                ws.Cell(row, 14).Value = list.Sum(x => x.Qty) > 0 ? list.Sum(x => x.AddAmount) / list.Sum(x => x.Qty) : 0;
+                ws.Cell(row, 15).Value = list.Sum(x => x.AddAmount);
+                for (int c = 1; c <= totalCols; c++)
+                    ws.Cell(row, c).Style.Font.Bold = true;
+            }
+
+            ws.Columns().AdjustToContents();
+        }
+
+        // ─── InvoiceWise Sheet ────────────────────────────────────────────────────
+        private void AddInvwiseSheet(XLWorkbook wb, string sheetName, string title, IEnumerable<InvWiseDTO> data)
+        {
+            var ws = wb.Worksheets.Add(sheetName);
+            int totalCols = 17;
+
+            ws.Cell(1, 1).Value = title;
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 14;
+            ws.Range(1, 1, 1, totalCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(2, 1).Value = "TOTAL TRADE";
+            ws.Cell(2, 1).Style.Font.Bold = true;
+            ws.Range(2, 1, 2, totalCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            string[] headers = { "Inv Date", "Inv No", "Inv Type", "Customer Name", "Qty", "Avg Price", "Taxable Amount", "IGST", "CGST", "SGST", "Tax Amount", "Total Amount", "Exp Discount", "Round Off", "Final Amount", "Add Price", "Add Amount" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(4, i + 1).Value = headers[i];
+                ws.Cell(4, i + 1).Style.Font.Bold = true;
+                ws.Cell(4, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+
+            int row = 5;
+            foreach (var item in data)
+            {
+                ws.Cell(row, 1).Value = item.InvDate.ToString("dd/MM/yyyy");
+                ws.Cell(row, 2).Value = item.InvNo;
+                ws.Cell(row, 3).Value = item.InvType;
+                ws.Cell(row, 4).Value = item.PartyName;
+                ws.Cell(row, 5).Value = item.Qty;
+                ws.Cell(row, 6).Value = item.AvgPrice;
+                ws.Cell(row, 7).Value = item.TaxableAmount;
+                ws.Cell(row, 8).Value = item.IgstAmount;
+                ws.Cell(row, 9).Value = item.CgstAmount;
+                ws.Cell(row, 10).Value = item.SgstAmount;
+                ws.Cell(row, 11).Value = item.TaxAmount;
+                ws.Cell(row, 12).Value = item.TotalAmount;
+                ws.Cell(row, 13).Value = item.TotDiscount;
+                ws.Cell(row, 14).Value = item.RoundOff;
+                ws.Cell(row, 15).Value = item.FinalAmount;
+                ws.Cell(row, 16).Value = item.AddPrice;
+                ws.Cell(row, 17).Value = item.AddAmount;
+                row++;
+            }
+
+            var list = data.ToList();
+            if (list.Count > 0)
+            {
+                ws.Cell(row, 1).Value = "Overall Total";
+                ws.Cell(row, 1).Style.Font.Bold = true;
+                ws.Cell(row, 5).Value = list.Sum(x => x.Qty);
+                ws.Cell(row, 6).Value = list.Sum(x => x.Qty) > 0 ? list.Sum(x => x.TaxableAmount) / list.Sum(x => x.Qty) : 0;
+                ws.Cell(row, 7).Value = list.Sum(x => x.TaxableAmount);
+                ws.Cell(row, 8).Value = list.Sum(x => x.IgstAmount);
+                ws.Cell(row, 9).Value = list.Sum(x => x.CgstAmount);
+                ws.Cell(row, 10).Value = list.Sum(x => x.SgstAmount);
+                ws.Cell(row, 11).Value = list.Sum(x => x.TaxAmount);
+                ws.Cell(row, 12).Value = list.Sum(x => x.TotalAmount);
+                ws.Cell(row, 13).Value = list.Sum(x => x.TotDiscount);
+                ws.Cell(row, 14).Value = list.Sum(x => x.RoundOff);
+                ws.Cell(row, 15).Value = list.Sum(x => x.FinalAmount);
+                ws.Cell(row, 16).Value = list.Sum(x => x.Qty) > 0 ? list.Sum(x => x.AddAmount) / list.Sum(x => x.Qty) : 0;
+                ws.Cell(row, 17).Value = list.Sum(x => x.AddAmount);
+                for (int c = 1; c <= totalCols; c++)
+                    ws.Cell(row, c).Style.Font.Bold = true;
+            }
+
+            ws.Columns().AdjustToContents();
+        }
+
+        // ─── Itemwise Sheet ───────────────────────────────────────────────────────
+        private void AddItemwiseSheet(XLWorkbook wb, string sheetName, string title, IEnumerable<SalePurchaseRegisterItemwiseDTO> data)
+        {
+            var ws = wb.Worksheets.Add(sheetName);
+            int totalCols = 17;
+
+            ws.Cell(1, 1).Value = title;
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 14;
+            ws.Range(1, 1, 1, totalCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(2, 1).Value = "TOTAL TRADE";
+            ws.Cell(2, 1).Style.Font.Bold = true;
+            ws.Range(2, 1, 2, totalCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            string[] headers = { "Inv Date", "Inv No", "Inv Type", "Party Name", "Product Name", "Qty", "COGS", "Avg Price", "Taxable Amount", "IGST", "CGST", "SGST", "Tax Amount", "Total Amount", "Round Off", "Final Amount", "Add Price", "Add Amount", "Exp Discount" };
+            // Itemwise has more columns
+            int itemCols = headers.Length;
+            ws.Range(1, 1, 1, itemCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Range(2, 1, 2, itemCols).Merge().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(4, i + 1).Value = headers[i];
+                ws.Cell(4, i + 1).Style.Font.Bold = true;
+                ws.Cell(4, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+
+            int row = 5;
+            foreach (var item in data)
+            {
+                ws.Cell(row, 1).Value = item.InvDate.ToString("dd/MM/yyyy");
+                ws.Cell(row, 2).Value = item.InvNo;
+                ws.Cell(row, 3).Value = item.InvType;
+                ws.Cell(row, 4).Value = item.PartyName;
+                ws.Cell(row, 5).Value = item.ProductName;
+                ws.Cell(row, 6).Value = item.Qty;
+                ws.Cell(row, 7).Value = item.cogs;
+                ws.Cell(row, 8).Value = item.AvgPrice;
+                ws.Cell(row, 9).Value = item.TaxableAmount;
+                ws.Cell(row, 10).Value = item.IgstAmount;
+                ws.Cell(row, 11).Value = item.CgstAmount;
+                ws.Cell(row, 12).Value = item.SgstAmount;
+                ws.Cell(row, 13).Value = item.TaxAmount;
+                ws.Cell(row, 14).Value = item.TotalAmount;
+                ws.Cell(row, 15).Value = item.RoundOff;
+                ws.Cell(row, 16).Value = item.FinalAmount;
+                ws.Cell(row, 17).Value = item.AddPrice;
+                ws.Cell(row, 18).Value = item.AddAmount;
+                ws.Cell(row, 19).Value = item.TotDiscount;
+                row++;
+            }
+
+            var list = data.ToList();
+            if (list.Count > 0)
+            {
+                ws.Cell(row, 1).Value = "Overall Total";
+                ws.Cell(row, 1).Style.Font.Bold = true;
+                ws.Cell(row, 6).Value = list.Sum(x => x.Qty);
+                ws.Cell(row, 8).Value = list.Sum(x => x.Qty) > 0 ? list.Sum(x => x.TaxableAmount) / list.Sum(x => x.Qty) : 0;
+                ws.Cell(row, 9).Value = list.Sum(x => x.TaxableAmount);
+                ws.Cell(row, 10).Value = list.Sum(x => x.IgstAmount);
+                ws.Cell(row, 11).Value = list.Sum(x => x.CgstAmount);
+                ws.Cell(row, 12).Value = list.Sum(x => x.SgstAmount);
+                ws.Cell(row, 13).Value = list.Sum(x => x.TaxAmount);
+                ws.Cell(row, 14).Value = list.Sum(x => x.TotalAmount);
+                ws.Cell(row, 15).Value = list.Sum(x => x.RoundOff);
+                ws.Cell(row, 16).Value = list.Sum(x => x.FinalAmount);
+                ws.Cell(row, 17).Value = list.Sum(x => x.Qty) > 0 ? list.Sum(x => x.AddAmount) / list.Sum(x => x.Qty) : 0;
+                ws.Cell(row, 18).Value = list.Sum(x => x.AddAmount);
+                ws.Cell(row, 19).Value = list.Sum(x => x.TotDiscount);
+                for (int c = 1; c <= 19; c++)
+                    ws.Cell(row, c).Style.Font.Bold = true;
+            }
+
+            ws.Columns().AdjustToContents();
+        }
     }
 }

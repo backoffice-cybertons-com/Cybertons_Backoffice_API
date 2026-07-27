@@ -72,7 +72,23 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           cmd.Parameters.AddWithValue("p_remarks", party.Remarks ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_party_profile", party.PartyProfile ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_rate_diff", party.RateDiff ?? 0);
+          cmd.Parameters.AddWithValue("p_kam_mobile", party.KamMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_recovery_mobile", party.RecoveryMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_sumul_incharge", party.SumulIncharge ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_sumul_incharge_mobile", party.SumulInchargeMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_retailer_code", party.RetailerCode ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_sumul_depo_code", party.SumulDepoCode ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_pan_doc_path", party.PanDocPath ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_aadhaar_doc_path", party.AadhaarDocPath ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_gst_cert_path", party.GstCertPath ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
+          cmd.Parameters.AddWithValue("p_salesperson_id", party.SalespersonId ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_salesperson_mobile", party.SalespersonMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_kam", party.Kam ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_recovery_agent", party.RecoveryAgent ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_transporter_id", party.TransporterId ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_transporter_mobile", party.TransporterMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_zone_id", party.ZoneId ?? (object)DBNull.Value);
         });
 
         if (partyId != 0) party.PartyId = Convert.ToInt32(partyId);
@@ -122,7 +138,23 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           cmd.Parameters.AddWithValue("p_remarks", party.Remarks ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_party_profile", party.PartyProfile ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_rate_diff", party.RateDiff ?? 0);
+          cmd.Parameters.AddWithValue("p_kam_mobile", party.KamMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_recovery_mobile", party.RecoveryMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_sumul_incharge", party.SumulIncharge ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_sumul_incharge_mobile", party.SumulInchargeMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_retailer_code", party.RetailerCode ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_sumul_depo_code", party.SumulDepoCode ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_pan_doc_path", party.PanDocPath ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_aadhaar_doc_path", party.AadhaarDocPath ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_gst_cert_path", party.GstCertPath ?? (object)DBNull.Value);
           cmd.Parameters.AddWithValue("p_user_id", (object?)userId ?? (object?)_tenantProvider?.UserId ?? DBNull.Value);
+          cmd.Parameters.AddWithValue("p_salesperson_id", party.SalespersonId ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_salesperson_mobile", party.SalespersonMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_kam", party.Kam ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_recovery_agent", party.RecoveryAgent ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_transporter_id", party.TransporterId ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_transporter_mobile", party.TransporterMobile ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_zone_id", party.ZoneId ?? (object)DBNull.Value);
         }, reader => reader[0]);
         return DbResult.Ok(party);
       }
@@ -254,7 +286,24 @@ namespace SoftBook.Infrastructure.Repositories.Classes
           Remarks = SafeGetString(reader, "remarks"),
           PartyProfile = SafeGetString(reader, "party_profile"),
           RateDiff = reader["rate_diff"] != DBNull.Value ? Convert.ToDecimal(reader["rate_diff"]) : null,
-          CreatedOn = SafeGetDateTime(reader, "created_on")
+          KamMobile = SafeGetString(reader, "kam_mobile"),
+          RecoveryMobile = SafeGetString(reader, "recovery_mobile"),
+          SumulIncharge = SafeGetString(reader, "sumul_incharge"),
+          SumulInchargeMobile = SafeGetString(reader, "sumul_incharge_mobile"),
+          RetailerCode = SafeGetString(reader, "retailer_code"),
+          SumulDepoCode = SafeGetString(reader, "sumul_depo_code"),
+          PanDocPath = SafeGetString(reader, "pan_doc_path"),
+          AadhaarDocPath = SafeGetString(reader, "aadhaar_doc_path"),
+          GstCertPath = SafeGetString(reader, "gst_cert_path"),
+          SalespersonId = SafeGetInt(reader, "salesperson_id"),
+          SalespersonMobile = SafeGetString(reader, "salesperson_mobile"),
+          Kam = SafeGetString(reader, "kam"),
+          RecoveryAgent = SafeGetString(reader, "recovery_agent"),
+          TransporterId = SafeGetInt(reader, "transporter_id"),
+          TransporterMobile = SafeGetString(reader, "transporter_mobile"),
+          ZoneId = SafeGetInt(reader, "zone_id"),
+          CreatedOn = SafeGetDateTime(reader, "created_on"),
+          ModifiedOn = SafeGetDateTime(reader, "modified_on")
        };
     }
   }

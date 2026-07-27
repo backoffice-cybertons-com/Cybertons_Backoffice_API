@@ -193,5 +193,30 @@ namespace SoftBook.API.Controllers
             var relativePath = "/Uploads/PartyProfiles/" + uniqueFileName;
             return Ok(new { filePath = relativePath });
         }
+
+        [HttpPost("upload-document")]
+        public async Task<IActionResult> UploadDocument(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded");
+
+            // Save to SoftBook.API/Upload directory
+            var uploadsFolder = Path.Combine(_env.ContentRootPath, "Upload");
+            if (!Directory.Exists(uploadsFolder))
+                Directory.CreateDirectory(uploadsFolder);
+
+            var safeFileName = Path.GetFileName(file.FileName).Replace(" ", "_");
+            var uniqueFileName = Guid.NewGuid().ToString("N").Substring(0, 8) + "_" + safeFileName;
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(fileStream);
+            }
+
+            // Return relative path
+            var relativePath = "Upload/" + uniqueFileName;
+            return Ok(new { filePath = relativePath });
+        }
     }
 }

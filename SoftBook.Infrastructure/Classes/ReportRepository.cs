@@ -957,7 +957,18 @@ namespace SoftBook.Infrastructure.Classes
                         try
                         {
                             return await ExecuteReaderAsync(
-                                "SELECT * FROM fn_payeble_receivable_credit(@p_company_id,@p_party_id,@p_as_of_date,@p_party_type)",
+                                @"SELECT f.*,
+                                         pm.kam,
+                                         pm.recovery_agent,
+                                         pm.sumul_incharge,
+                                         zm.zone_name,
+                                         sm.salesperson_name,
+                                         tm.transporter_name
+                                  FROM fn_payeble_receivable_credit(@p_company_id,@p_party_id,@p_as_of_date,@p_party_type) f
+                                  JOIN tab_party_master pm ON f.party_id = pm.party_id
+                                  LEFT JOIN tab_zone_master zm ON pm.zone_id = zm.zone_id
+                                  LEFT JOIN tab_salesperson_master sm ON pm.salesperson_id = sm.salesperson_id
+                                  LEFT JOIN tab_transporter_master tm ON pm.transporter_id = tm.transporter_id",
 
                                 cmd =>
                                 {
@@ -1038,7 +1049,14 @@ namespace SoftBook.Infrastructure.Classes
 
                                         MonthlyTerm = reader.IsDBNull(reader.GetOrdinal("monthly_term"))
                                             ? 0
-                                            : reader.GetDecimal(reader.GetOrdinal("monthly_term"))
+                                            : reader.GetDecimal(reader.GetOrdinal("monthly_term")),
+
+                                        Kam = reader.IsDBNull(reader.GetOrdinal("kam")) ? null : reader["kam"]?.ToString(),
+                                        RecoveryAgent = reader.IsDBNull(reader.GetOrdinal("recovery_agent")) ? null : reader["recovery_agent"]?.ToString(),
+                                        SumulIncharge = reader.IsDBNull(reader.GetOrdinal("sumul_incharge")) ? null : reader["sumul_incharge"]?.ToString(),
+                                        ZoneName = reader.IsDBNull(reader.GetOrdinal("zone_name")) ? null : reader["zone_name"]?.ToString(),
+                                        SalespersonName = reader.IsDBNull(reader.GetOrdinal("salesperson_name")) ? null : reader["salesperson_name"]?.ToString(),
+                                        TransporterName = reader.IsDBNull(reader.GetOrdinal("transporter_name")) ? null : reader["transporter_name"]?.ToString()
                                     };
                                 },
 

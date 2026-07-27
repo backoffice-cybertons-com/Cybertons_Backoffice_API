@@ -121,8 +121,7 @@ namespace SoftBook.Application.Classes
                         request.CompanyId, "Customer,Trader", onlyWithAddPrice: false);
                     var mismatches = await _partyRateAdjustmentService.GetInvoiceMismatchListAsync(
                         request.CompanyId, request.FromDate!.Value, request.ToDate!.Value, "Customer,Trader");
-                    var changes = await _partyRateAdjustmentService.GetChangeListAsync(
-                        request.CompanyId, "Customer,Trader");
+                    var changes = BuildPartyAddPriceChanges(summary);
                     dashboardJson = MergePartyAddPrice(dashboardJson, summary, mismatches, changes);
                 }
                 catch
@@ -132,6 +131,38 @@ namespace SoftBook.Application.Classes
             }
 
             return dashboardJson;
+        }
+
+        private static List<PartyRateAdjustmentChangeItemDto> BuildPartyAddPriceChanges(
+            IEnumerable<PartyRateAdjustmentSummaryItemDto> summary)
+        {
+            return summary
+                .Where(x => x.AddPrice != x.StoredRateDiff)
+                .Select(x =>
+                {
+                    var isUpgraded = x.AddPrice < x.StoredRateDiff;
+                    return new PartyRateAdjustmentChangeItemDto
+                    {
+                        PartyId = x.PartyId,
+                        DisplayName = x.DisplayName,
+                        PartyType = x.PartyType,
+                        PaymentTermName = x.PaymentTermName,
+                        PaymentTermDays = x.PaymentTermDays,
+                        Last7DaysSalesTotal = x.Last7DaysSalesTotal,
+                        AvgSalePerDay = x.AvgSalePerDay,
+                        TotalOutstanding = x.TotalOutstanding,
+                        AvgOutstandingDays = x.AvgOutstandingDays,
+                        FromDue = x.FromDue,
+                        ToDue = x.ToDue,
+                        PreviousAddPrice = x.StoredRateDiff,
+                        NewAddPrice = x.AddPrice,
+                        ChangeAmount = Math.Abs(x.StoredRateDiff - x.AddPrice),
+                        ChangeType = isUpgraded ? "Upgraded" : "Downgraded"
+                    };
+                })
+                .OrderByDescending(x => x.ChangeAmount)
+                .ThenBy(x => x.DisplayName)
+                .ToList();
         }
 
         private static void ApplyDashboardDateRange(DashboardRequestDto request)

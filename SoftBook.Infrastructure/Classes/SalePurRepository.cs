@@ -180,6 +180,19 @@ namespace SoftBook.Infrastructure.Classes
             }
         }
 
+        // -----------------------------------------------------------------------
+        // Hetak Modi 13-06-2026
+        // REASON: This method intentionally keeps inline SQL and CANNOT be moved
+        // to a database function.
+        //
+        // It uses pg_advisory_xact_lock() which acquires a transaction-level
+        // advisory lock. For the lock to protect the invoice number generation,
+        // it MUST run on the same NpgsqlConnection and within the same
+        // NpgsqlTransaction as the INSERT statement that follows.
+        // If moved to a DB function, the lock would be released as soon as the
+        // function returns — completely breaking the concurrency protection and
+        // causing duplicate invoice numbers under concurrent requests.
+        // -----------------------------------------------------------------------
         private async Task AssignNextInvoiceNumberAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, SalePur entity)
         {
             var (prefix, width) = await GetInvoiceNumberFormatAsync(connection, transaction, entity);
@@ -218,6 +231,21 @@ namespace SoftBook.Infrastructure.Classes
             entity.InvoiceSeriesIncrementNumber = nextNumber;
         }
 
+        // -----------------------------------------------------------------------
+        // Hetak Modi 13-06-2026
+        // REASON: This method intentionally keeps inline SQL and CANNOT be moved
+        // to a database function.
+        //
+        // The SQL regex pattern used here (e.g. '^INV([0-9]+)$') is built
+        // dynamically in C# using Regex.Escape(prefix) at runtime, and then
+        // passed as a parameterized @pattern value — making it fully safe from
+        // SQL injection. The pattern depends on the existing invoice series in
+        // the database, which is only known after reading live data.
+        //
+        // Additionally, this query must share the same connection + transaction
+        // as AssignNextInvoiceNumberAsync so it participates in the advisory lock
+        // scope. Moving it to a DB function would break this coupling.
+        // -----------------------------------------------------------------------
         private async Task<(string Prefix, int Width)> GetInvoiceNumberFormatAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, SalePur entity)
         {
             await using var command = new NpgsqlCommand(@"
@@ -422,6 +450,7 @@ namespace SoftBook.Infrastructure.Classes
                 DeliveryDate = SafeGetDateTime(reader, "delivery_date"),
                 VehicleNo = SafeGetString(reader, "vehicle_no"),
                 TransporterId = reader.IsDBNull(reader.GetOrdinal("transporter_id")) ? (int?)null : SafeGetInt(reader, "transporter_id"),
+                SalespersonId = reader.IsDBNull(reader.GetOrdinal("salesperson_id")) ? (int?)null : SafeGetInt(reader, "salesperson_id"),
                 UnitId = reader.IsDBNull(reader.GetOrdinal("unit_id")) ? (int?)null : SafeGetInt(reader, "unit_id"),
                 BankId = reader.IsDBNull(reader.GetOrdinal("bank_id")) ? (int?)null : SafeGetInt(reader, "bank_id"),
                 ProductId = reader.IsDBNull(reader.GetOrdinal("product_id")) ? (int?)null : SafeGetInt(reader, "product_id"),
@@ -508,7 +537,9 @@ namespace SoftBook.Infrastructure.Classes
                 DeletedOn = SafeGetDateTime(reader, "deleted_on"),
                 TotalAmount = reader.GetDecimal(reader.GetOrdinal("total_amount")),
                 RateDiff = reader.IsDBNull(reader.GetOrdinal("rate_diff")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate_diff")),
-                Cogs = reader.IsDBNull(reader.GetOrdinal("cogs")) ? 0 : reader.GetDecimal(reader.GetOrdinal("cogs"))
+                Cogs = reader.IsDBNull(reader.GetOrdinal("cogs")) ? 0 : reader.GetDecimal(reader.GetOrdinal("cogs")),
+                DealerPrice = reader.IsDBNull(reader.GetOrdinal("dealer_price")) ? 0 : reader.GetDecimal(reader.GetOrdinal("dealer_price")),
+                SpCommUnit = reader.IsDBNull(reader.GetOrdinal("sp_comm_unit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("sp_comm_unit"))
             };
         }
 
@@ -579,6 +610,7 @@ namespace SoftBook.Infrastructure.Classes
             cmd.Parameters.Add("p_invoice_total", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.InvoiceTotal ?? DBNull.Value;
             cmd.Parameters.Add("p_final_invoice_amount", NpgsqlTypes.NpgsqlDbType.Numeric).Value = (object?)entity.FinalInvoiceAmount ?? DBNull.Value;
             AddQuantityParameter(cmd, "p_total_quantity", entity.TotalQuantity);
+            cmd.Parameters.Add("p_salesperson_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.SalespersonId ?? DBNull.Value;
         }
 
         private void AddSalePurTranParameters(NpgsqlCommand cmd, SalePurTran entity)
@@ -621,6 +653,8 @@ namespace SoftBook.Infrastructure.Classes
             cmd.Parameters.Add("p_delete_flag", NpgsqlTypes.NpgsqlDbType.Boolean).Value = entity.DeleteFlag ?? false;
             cmd.Parameters.Add("p_rate_diff", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.RateDiff ?? 0;
             cmd.Parameters.Add("p_cogs", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.Cogs ?? 0;
+            cmd.Parameters.Add("p_dealer_price", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.DealerPrice ?? 0;
+            cmd.Parameters.Add("p_sp_comm_unit", NpgsqlTypes.NpgsqlDbType.Numeric).Value = entity.SpCommUnit ?? 0;
         }
 
 		/// <summary>
@@ -632,6 +666,98 @@ namespace SoftBook.Infrastructure.Classes
 		{
 			// Called from the form when selecting a customer (no date = use today)
 			return await GetPartyOutstandingBeforeDateAsync(companyId, partyId, DateTime.Today.AddDays(1));
+		}
+
+		public async Task<List<SoftBook.Domain.DTOs.PartyBulkSummaryDto>> GetPartyRateAdjustmentSummaryBulkAsync(int companyId, string partyType, DateTime asOfDate)
+		{
+			var result = await ExecuteReaderAsync(@"
+                WITH PartyAccounts AS (
+                    SELECT 
+                        party_id,
+                        COALESCE(accounts_receivable_account, party_id) AS ar_acc,
+                        COALESCE(accounts_payable_account, party_id) AS ap_acc
+                    FROM public.tab_party_master
+                    WHERE (@p_company_id = 0 OR company_id = @p_company_id)
+                      AND party_type = ANY(string_to_array(@p_party_types, ','))
+                ),
+                JV_Accounts AS (
+                    SELECT ar_acc AS acc FROM PartyAccounts
+                    UNION
+                    SELECT ap_acc AS acc FROM PartyAccounts
+                ),
+                JV_Dr_Bal AS (
+                    SELECT j.dr_account_code AS acc, SUM(j.amount) as dr_amt
+                    FROM tab_jv j
+                    WHERE j.jv_comp_code = @p_company_id
+                      AND j.jv_date < @p_as_of_date
+                      AND COALESCE(j.delete_flag, false) = false
+                      AND j.dr_account_code IN (SELECT acc FROM JV_Accounts)
+                    GROUP BY j.dr_account_code
+                ),
+                JV_Cr_Bal AS (
+                    SELECT j.cr_account_code AS acc, SUM(j.amount) as cr_amt
+                    FROM tab_jv j
+                    WHERE j.jv_comp_code = @p_company_id
+                      AND j.jv_date < @p_as_of_date
+                      AND COALESCE(j.delete_flag, false) = false
+                      AND j.cr_account_code IN (SELECT acc FROM JV_Accounts)
+                    GROUP BY j.cr_account_code
+                ),
+                Sales_Bal AS (
+                    SELECT s.party_id, SUM(s.grand_total) as total
+                    FROM public.tab_sale_pur s
+                    WHERE s.company_id = @p_company_id
+                      AND LOWER(TRIM(s.inv_type)) = 'sales'
+                      AND s.inv_date >= (@p_as_of_date::date - INTERVAL '7 day')
+                      AND s.inv_date < @p_as_of_date::date
+                      AND COALESCE(s.delete_flag, FALSE) = FALSE
+                      AND (@p_fiscal_year_id IS NULL OR s.fiscal_year_id = @p_fiscal_year_id)
+                    GROUP BY s.party_id
+                )
+                SELECT 
+                    p.party_id AS PartyId,
+                    p.display_name AS DisplayName,
+                    p.party_type AS PartyType,
+                    p.payment_terms AS PaymentTerms,
+                    COALESCE(p.rate_diff, 0) AS StoredRateDiff,
+                    COALESCE(sales.total, 0) AS Last7DaysSalesTotal,
+                    (COALESCE(dr.dr_amt, 0) + COALESCE(dr2.dr_amt, 0) - 
+                     COALESCE(cr.cr_amt, 0) - COALESCE(cr2.cr_amt, 0) + 
+                     CASE 
+                        WHEN UPPER(p.opening_balance_type) = 'DR' THEN  COALESCE(p.opening_balance, 0)::NUMERIC
+                        WHEN UPPER(p.opening_balance_type) = 'CR' THEN -COALESCE(p.opening_balance, 0)::NUMERIC
+                        ELSE 0 
+                     END) AS TotalOutstanding
+                FROM public.tab_party_master p
+                JOIN PartyAccounts pa ON pa.party_id = p.party_id
+                LEFT JOIN Sales_Bal sales ON sales.party_id = p.party_id
+                LEFT JOIN JV_Dr_Bal dr ON dr.acc = pa.ar_acc
+                LEFT JOIN JV_Dr_Bal dr2 ON dr2.acc = pa.ap_acc AND pa.ar_acc <> pa.ap_acc
+                LEFT JOIN JV_Cr_Bal cr ON cr.acc = pa.ar_acc
+                LEFT JOIN JV_Cr_Bal cr2 ON cr2.acc = pa.ap_acc AND pa.ar_acc <> pa.ap_acc
+                WHERE (@p_company_id = 0 OR p.company_id = @p_company_id)
+                  AND p.party_type = ANY(string_to_array(@p_party_types, ','));
+            ", cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+				cmd.Parameters.AddWithValue("p_party_types", partyType ?? "Customer,Trader");
+				cmd.Parameters.Add(new NpgsqlParameter("p_as_of_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = asOfDate.Date });
+				cmd.Parameters.Add(new NpgsqlParameter("p_fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer)
+				{
+					Value = (object?)_tenantProvider?.FiscalYearId ?? DBNull.Value
+				});
+			}, reader => new SoftBook.Domain.DTOs.PartyBulkSummaryDto
+			{
+				PartyId = reader["PartyId"] != DBNull.Value ? Convert.ToInt32(reader["PartyId"]) : 0,
+				DisplayName = reader["DisplayName"] != DBNull.Value ? Convert.ToString(reader["DisplayName"]) ?? string.Empty : string.Empty,
+				PartyType = reader["PartyType"] != DBNull.Value ? Convert.ToString(reader["PartyType"]) ?? string.Empty : string.Empty,
+				PaymentTerms = reader["PaymentTerms"] != DBNull.Value ? Convert.ToString(reader["PaymentTerms"]) : null,
+				StoredRateDiff = reader["StoredRateDiff"] != DBNull.Value ? Convert.ToDecimal(reader["StoredRateDiff"]) : 0m,
+				Last7DaysSalesTotal = reader["Last7DaysSalesTotal"] != DBNull.Value ? Convert.ToDecimal(reader["Last7DaysSalesTotal"]) : 0m,
+				TotalOutstanding = reader["TotalOutstanding"] != DBNull.Value ? Convert.ToDecimal(reader["TotalOutstanding"]) : 0m
+			}, CommandType.Text);
+
+			return result.ToList();
 		}
 
 		public async Task<decimal> GetPartyOutstandingBeforeDateAsync(int companyId, int partyId, DateTime beforeDate)
@@ -755,7 +881,7 @@ namespace SoftBook.Infrastructure.Classes
                 WHERE company_id = @p_company_id
                   AND party_id = @p_party_id
                   AND LOWER(TRIM(inv_type)) = 'sales'
-                  AND inv_date::date BETWEEN (@p_as_of_date - INTERVAL '6 day')::date AND @p_as_of_date::date
+                  AND inv_date::date BETWEEN (@p_as_of_date - INTERVAL '7 day')::date AND (@p_as_of_date - INTERVAL '1 day')::date
                   AND COALESCE(delete_flag, FALSE) = FALSE
                   AND (@p_fiscal_year_id IS NULL OR fiscal_year_id = @p_fiscal_year_id)",
 			cmd =>
@@ -777,6 +903,11 @@ namespace SoftBook.Infrastructure.Classes
 			return 0;
 		}
 
+		/*
+		Old KPI mismatch approach kept for reference only.
+		This method fetched invoices first, and the service then calculated expected add price
+		one invoice/party/date at a time. For year filters that created many database round trips.
+		Use GetSalesInvoiceAddPriceMismatchesAsync instead; it does the full calculation in one SQL query.
 		public async Task<List<SalesInvoiceAddPriceCheckDto>> GetSalesInvoicesForAddPriceCheckAsync(
 			int companyId,
 			DateTime fromDate,
@@ -784,16 +915,26 @@ namespace SoftBook.Infrastructure.Classes
 			string? partyType = null)
 		{
 			return await ExecuteReaderAsync(@"
+                WITH FilteredSales AS (
+                    SELECT sp.sp_unique_code, sp.inv_no, sp.inv_date, sp.due_date, sp.party_id, sp.rate_diff, sp.company_id, sp.fiscal_year_id
+                    FROM public.tab_sale_pur sp
+                    WHERE sp.company_id = @p_company_id
+                      AND LOWER(TRIM(sp.inv_type)) = 'sales'
+                      AND sp.inv_date >= @p_from_date 
+                      AND sp.inv_date < (@p_to_date::date + INTERVAL '1 day')
+                      AND COALESCE(sp.delete_flag, FALSE) = FALSE
+                      AND (@p_fiscal_year_id IS NULL OR sp.fiscal_year_id = @p_fiscal_year_id)
+                )
                 SELECT
-                    sp.sp_unique_code,
-                    COALESCE(sp.inv_no, '') AS inv_no,
-                    sp.inv_date,
-                    sp.due_date,
-                    sp.party_id,
-                    COALESCE(pm.display_name, '') AS display_name,
-                    COALESCE(pm.party_type, '') AS party_type,
-                    COALESCE(line_adj.actual_add_price, sp.rate_diff, 0) AS actual_add_price
-                FROM public.tab_sale_pur sp
+                    sp.sp_unique_code AS SpUniqueCode,
+                    COALESCE(sp.inv_no, '') AS InvNo,
+                    sp.inv_date AS InvDate,
+                    sp.due_date AS DueDate,
+                    sp.party_id AS PartyId,
+                    COALESCE(pm.display_name, '') AS DisplayName,
+                    COALESCE(pm.party_type, '') AS PartyType,
+                    COALESCE(line_adj.actual_add_price, sp.rate_diff, 0) AS ActualAddPrice
+                FROM FilteredSales sp
                 INNER JOIN public.tab_party_master pm
                     ON pm.party_id = sp.party_id
                    AND pm.company_id = sp.company_id
@@ -803,12 +944,7 @@ namespace SoftBook.Infrastructure.Classes
                     WHERE t.sp_unique_code = sp.sp_unique_code
                       AND COALESCE(t.delete_flag, FALSE) = FALSE
                 ) line_adj ON TRUE
-                WHERE sp.company_id = @p_company_id
-                  AND LOWER(TRIM(sp.inv_type)) = 'sales'
-                  AND sp.inv_date::date BETWEEN @p_from_date AND @p_to_date
-                  AND COALESCE(sp.delete_flag, FALSE) = FALSE
-                  AND (@p_party_type IS NULL OR pm.party_type = ANY(string_to_array(@p_party_type, ',')))
-                  AND (@p_fiscal_year_id IS NULL OR sp.fiscal_year_id = @p_fiscal_year_id)
+                WHERE (@p_party_type IS NULL OR pm.party_type = ANY(string_to_array(@p_party_type, ',')))
                 ORDER BY sp.inv_date DESC, sp.sp_unique_code DESC",
 			cmd =>
 			{
@@ -823,14 +959,198 @@ namespace SoftBook.Infrastructure.Classes
 			},
 			reader => new SalesInvoiceAddPriceCheckDto
 			{
-				SpUniqueCode = Convert.ToInt32(reader["sp_unique_code"]),
-				InvNo = reader["inv_no"]?.ToString() ?? string.Empty,
-				InvDate = Convert.ToDateTime(reader["inv_date"]),
-				DueDate = reader["due_date"] == DBNull.Value ? null : Convert.ToDateTime(reader["due_date"]),
-				PartyId = Convert.ToInt32(reader["party_id"]),
-				DisplayName = reader["display_name"]?.ToString() ?? string.Empty,
-				PartyType = reader["party_type"]?.ToString() ?? string.Empty,
-				ActualAddPrice = reader["actual_add_price"] != DBNull.Value ? Convert.ToDecimal(reader["actual_add_price"]) : 0
+				SpUniqueCode = Convert.ToInt32(reader["SpUniqueCode"]),
+				InvNo = reader["InvNo"]?.ToString() ?? string.Empty,
+				InvDate = Convert.ToDateTime(reader["InvDate"]),
+				DueDate = reader["DueDate"] == DBNull.Value ? null : Convert.ToDateTime(reader["DueDate"]),
+				PartyId = Convert.ToInt32(reader["PartyId"]),
+				DisplayName = reader["DisplayName"]?.ToString() ?? string.Empty,
+				PartyType = reader["PartyType"]?.ToString() ?? string.Empty,
+				ActualAddPrice = reader["ActualAddPrice"] != DBNull.Value ? Convert.ToDecimal(reader["ActualAddPrice"]) : 0
+			},
+			CommandType.Text);
+		}
+		*/
+
+		public async Task<List<PartyInvoiceAddPriceMismatchDto>> GetSalesInvoiceAddPriceMismatchesAsync(
+			int companyId,
+			DateTime fromDate,
+			DateTime toDate,
+			string? partyType = null)
+		{
+			return await ExecuteReaderAsync(@"
+                WITH FilteredSales AS (
+                    SELECT
+                        sp.sp_unique_code,
+                        sp.inv_no,
+                        sp.inv_date::date AS inv_date,
+                        sp.due_date,
+                        sp.party_id,
+                        sp.company_id,
+                        COALESCE(sp.rate_diff, 0) AS header_rate_diff
+                    FROM public.tab_sale_pur sp
+                    WHERE sp.company_id = @p_company_id
+                      AND LOWER(TRIM(sp.inv_type)) = 'sales'
+                      AND sp.inv_date >= @p_from_date
+                      AND sp.inv_date < (@p_to_date::date + INTERVAL '1 day')
+                      AND COALESCE(sp.delete_flag, FALSE) = FALSE
+                      AND (@p_fiscal_year_id IS NULL OR sp.fiscal_year_id = @p_fiscal_year_id)
+                ),
+                InvoiceParties AS (
+                    SELECT
+                        fs.*,
+                        COALESCE(pm.display_name, '') AS display_name,
+                        COALESCE(pm.party_type, '') AS party_type,
+                        COALESCE(pm.rate_diff, 0) AS stored_rate_diff,
+                        COALESCE(pm.accounts_receivable_account, fs.party_id) AS ar_acc,
+                        COALESCE(pm.accounts_payable_account, fs.party_id) AS ap_acc,
+                        CASE
+                            WHEN UPPER(pm.opening_balance_type) = 'DR' THEN COALESCE(pm.opening_balance, 0)::NUMERIC
+                            WHEN UPPER(pm.opening_balance_type) = 'CR' THEN -COALESCE(pm.opening_balance, 0)::NUMERIC
+                            ELSE 0
+                        END AS opening_balance
+                    FROM FilteredSales fs
+                    INNER JOIN public.tab_party_master pm
+                        ON pm.party_id = fs.party_id
+                       AND pm.company_id = fs.company_id
+                    WHERE (@p_party_type IS NULL OR pm.party_type = ANY(string_to_array(@p_party_type, ',')))
+                ),
+                InvoiceKeys AS (
+                    SELECT DISTINCT party_id, inv_date, ar_acc, ap_acc, opening_balance
+                    FROM InvoiceParties
+                ),
+                ActualAddPrice AS (
+                    SELECT
+                        t.sp_unique_code,
+                        MAX(COALESCE(t.rate_diff, 0)) AS actual_add_price
+                    FROM public.tab_sal_pur_tran t
+                    INNER JOIN InvoiceParties ip ON ip.sp_unique_code = t.sp_unique_code
+                    WHERE COALESCE(t.delete_flag, FALSE) = FALSE
+                    GROUP BY t.sp_unique_code
+                ),
+                JVBalance AS (
+                    SELECT
+                        k.party_id,
+                        k.inv_date,
+                        SUM(
+                            CASE WHEN j.dr_account_code IN (k.ar_acc, k.ap_acc) THEN j.amount ELSE 0 END
+                            - CASE WHEN j.cr_account_code IN (k.ar_acc, k.ap_acc) THEN j.amount ELSE 0 END
+                        ) AS jv_balance
+                    FROM InvoiceKeys k
+                    INNER JOIN public.tab_jv j
+                        ON j.jv_comp_code = @p_company_id
+                       AND j.jv_date < k.inv_date
+                       AND COALESCE(j.delete_flag, FALSE) = FALSE
+                       AND (
+                            j.dr_account_code IN (k.ar_acc, k.ap_acc)
+                            OR j.cr_account_code IN (k.ar_acc, k.ap_acc)
+                       )
+                    GROUP BY k.party_id, k.inv_date
+                ),
+                Last7DaysSales AS (
+                    SELECT
+                        k.party_id,
+                        k.inv_date,
+                        SUM(s.grand_total) AS last_7_days_sales_total
+                    FROM InvoiceKeys k
+                    INNER JOIN public.tab_sale_pur s
+                        ON s.company_id = @p_company_id
+                       AND s.party_id = k.party_id
+                       AND LOWER(TRIM(s.inv_type)) = 'sales'
+                       AND s.inv_date >= (k.inv_date - INTERVAL '7 day')
+                       AND s.inv_date < k.inv_date
+                       AND COALESCE(s.delete_flag, FALSE) = FALSE
+                       AND (@p_fiscal_year_id IS NULL OR s.fiscal_year_id = @p_fiscal_year_id)
+                    GROUP BY k.party_id, k.inv_date
+                ),
+                Calculated AS (
+                    SELECT
+                        ip.*,
+                        COALESCE(aa.actual_add_price, ip.header_rate_diff, 0) AS actual_add_price,
+                        COALESCE(jv.jv_balance, 0) + ip.opening_balance AS total_outstanding,
+                        COALESCE(s7.last_7_days_sales_total, 0) AS last_7_days_sales_total,
+                        COALESCE(s7.last_7_days_sales_total, 0) / 7.0 AS avg_sale_per_day
+                    FROM InvoiceParties ip
+                    LEFT JOIN ActualAddPrice aa ON aa.sp_unique_code = ip.sp_unique_code
+                    LEFT JOIN JVBalance jv ON jv.party_id = ip.party_id AND jv.inv_date = ip.inv_date
+                    LEFT JOIN Last7DaysSales s7 ON s7.party_id = ip.party_id AND s7.inv_date = ip.inv_date
+                ),
+                WithDays AS (
+                    SELECT
+                        c.*,
+                        CASE
+                            WHEN c.avg_sale_per_day > 0
+                                THEN GREATEST(c.total_outstanding / c.avg_sale_per_day, 0)
+                            ELSE 0
+                        END AS avg_outstanding_days
+                    FROM Calculated c
+                ),
+                WithExpected AS (
+                    SELECT
+                        wd.*,
+                        COALESCE(ap.add_price, 0) AS expected_add_price,
+                        COALESCE(ap.from_due, 0) AS from_due,
+                        COALESCE(ap.to_due, 0) AS to_due
+                    FROM WithDays wd
+                    LEFT JOIN LATERAL (
+                        SELECT ap.add_price, ap.from_due, ap.to_due
+                        FROM public.tab_add_price ap
+                        WHERE wd.avg_outstanding_days >= ap.from_due
+                          AND wd.avg_outstanding_days <= ap.to_due
+                          AND (ap.company_id IS NULL OR ap.company_id = @p_company_id)
+                        ORDER BY ap.rowid
+                        LIMIT 1
+                    ) ap ON TRUE
+                )
+                SELECT
+                    sp_unique_code AS SpUniqueCode,
+                    COALESCE(inv_no, '') AS InvNo,
+                    inv_date AS InvDate,
+                    due_date AS DueDate,
+                    party_id AS PartyId,
+                    display_name AS DisplayName,
+                    party_type AS PartyType,
+                    expected_add_price AS ExpectedAddPrice,
+                    actual_add_price AS ActualAddPrice,
+                    actual_add_price - expected_add_price AS Difference,
+                    total_outstanding AS TotalOutstanding,
+                    last_7_days_sales_total AS Last7DaysSalesTotal,
+                    avg_sale_per_day AS AvgSalePerDay,
+                    avg_outstanding_days AS AvgOutstandingDays,
+                    from_due AS FromDue,
+                    to_due AS ToDue
+                FROM WithExpected
+                WHERE expected_add_price <> actual_add_price
+                ORDER BY inv_date DESC, display_name",
+			cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+				cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = fromDate.Date });
+				cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = toDate.Date });
+				cmd.Parameters.AddWithValue("p_party_type", (object?)partyType ?? DBNull.Value);
+				cmd.Parameters.Add(new NpgsqlParameter("p_fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer)
+				{
+					Value = (object?)_tenantProvider?.FiscalYearId ?? DBNull.Value
+				});
+			},
+			reader => new PartyInvoiceAddPriceMismatchDto
+			{
+				SpUniqueCode = Convert.ToInt32(reader["SpUniqueCode"]),
+				InvNo = reader["InvNo"]?.ToString() ?? string.Empty,
+				InvDate = Convert.ToDateTime(reader["InvDate"]),
+				DueDate = reader["DueDate"] == DBNull.Value ? null : Convert.ToDateTime(reader["DueDate"]),
+				PartyId = Convert.ToInt32(reader["PartyId"]),
+				DisplayName = reader["DisplayName"]?.ToString() ?? string.Empty,
+				PartyType = reader["PartyType"]?.ToString() ?? string.Empty,
+				ExpectedAddPrice = reader["ExpectedAddPrice"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["ExpectedAddPrice"]), 2) : 0,
+				ActualAddPrice = reader["ActualAddPrice"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["ActualAddPrice"]), 2) : 0,
+				Difference = reader["Difference"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["Difference"]), 2) : 0,
+				TotalOutstanding = reader["TotalOutstanding"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["TotalOutstanding"]), 2) : 0,
+				Last7DaysSalesTotal = reader["Last7DaysSalesTotal"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["Last7DaysSalesTotal"]), 2) : 0,
+				AvgSalePerDay = reader["AvgSalePerDay"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["AvgSalePerDay"]), 2) : 0,
+				AvgOutstandingDays = reader["AvgOutstandingDays"] != DBNull.Value ? Math.Round(Convert.ToDecimal(reader["AvgOutstandingDays"]), 2) : 0,
+				FromDue = reader["FromDue"] != DBNull.Value ? Convert.ToDecimal(reader["FromDue"]) : 0,
+				ToDue = reader["ToDue"] != DBNull.Value ? Convert.ToDecimal(reader["ToDue"]) : 0
 			},
 			CommandType.Text);
 		}
@@ -841,10 +1161,35 @@ namespace SoftBook.Infrastructure.Classes
 			return lookup.AddPrice;
 		}
 
+		public async Task<List<AddPriceLookupDto>> GetAllAddPriceLookupsAsync(int companyId)
+		{
+			var rows = await ExecuteReaderAsync(@"
+                SELECT COALESCE(ap.add_price, 0) AS add_price,
+                       COALESCE(ap.sale_per_comission, 0) AS sale_per_comission,
+                       COALESCE(ap.from_due, 0) AS from_due,
+                       COALESCE(ap.to_due, 0) AS to_due
+                FROM public.tab_add_price ap
+                WHERE (ap.company_id IS NULL OR ap.company_id = @p_company_id)
+                ORDER BY ap.from_due",
+			cmd =>
+			{
+				cmd.Parameters.AddWithValue("p_company_id", companyId);
+			}, reader => new AddPriceLookupDto
+			{
+				AddPrice = reader["add_price"] != DBNull.Value ? Convert.ToDecimal(reader["add_price"]) : 0,
+				SalePerComission = reader["sale_per_comission"] != DBNull.Value ? Convert.ToDecimal(reader["sale_per_comission"]) : 0,
+				FromDue = reader["from_due"] != DBNull.Value ? Convert.ToDecimal(reader["from_due"]) : 0,
+				ToDue = reader["to_due"] != DBNull.Value ? Convert.ToDecimal(reader["to_due"]) : 0
+			}, CommandType.Text);
+
+			return rows.ToList();
+		}
+
 		public async Task<AddPriceLookupDto> GetAddPriceLookupForDueDaysAsync(int companyId, decimal avgOutstandingDays)
 		{
 			var rows = await ExecuteReaderAsync(@"
                 SELECT COALESCE(ap.add_price, 0) AS add_price,
+                       COALESCE(ap.sale_per_comission, 0) AS sale_per_comission,
                        COALESCE(ap.from_due, 0) AS from_due,
                        COALESCE(ap.to_due, 0) AS to_due
                 FROM public.tab_add_price ap
@@ -861,6 +1206,7 @@ namespace SoftBook.Infrastructure.Classes
 			reader => new AddPriceLookupDto
 			{
 				AddPrice = reader["add_price"] != DBNull.Value ? Convert.ToDecimal(reader["add_price"]) : 0,
+				SalePerComission = reader["sale_per_comission"] != DBNull.Value ? Convert.ToDecimal(reader["sale_per_comission"]) : 0,
 				FromDue = reader["from_due"] != DBNull.Value ? Convert.ToDecimal(reader["from_due"]) : 0,
 				ToDue = reader["to_due"] != DBNull.Value ? Convert.ToDecimal(reader["to_due"]) : 0
 			},

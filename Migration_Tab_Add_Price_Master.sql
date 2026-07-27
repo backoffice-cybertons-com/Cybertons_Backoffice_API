@@ -1,0 +1,9 @@
+-- ================================================================
+-- Add Price Master — run ONLY if tab_add_price table already exists
+--
+-- Masters are admin-only (Masters tab 1011). No separate tab or
+-- role permission rows are required for Add Price.
+--
+-- Run this file only:
+--   SoftBook.Infrastructure/sp_Master_Universal_Postgres.sql
+-- ================================================================

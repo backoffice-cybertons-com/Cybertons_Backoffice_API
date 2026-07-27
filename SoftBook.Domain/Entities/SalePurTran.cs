@@ -129,5 +129,29 @@ namespace SoftBook.Domain.Entities
         [Column("cogs")]
         [JsonPropertyName("cogs")]
         public decimal? Cogs { get; set; }
+
+        [Column("dealer_price")]
+        [JsonPropertyName("dealerPrice")]
+        public decimal? DealerPrice { get; set; }
+
+        [Column("sp_comm_unit")]
+        [JsonPropertyName("spCommUnit")]
+        public decimal? SpCommUnit { get; set; }
+
+        [NotMapped]
+        [JsonPropertyName("companyCommUnit")]
+        public decimal CompanyCommUnit => (Mrp ?? 0) - Rate - (SpCommUnit ?? 0);
+
+        [NotMapped]
+        [JsonPropertyName("invAmountMrp")]
+        public decimal InvAmountMrp => Quantity * (Mrp ?? 0);
+
+        [NotMapped]
+        [JsonPropertyName("spCommTotal")]
+        public decimal SpCommTotal => Quantity * (SpCommUnit ?? 0);
+
+        [NotMapped]
+        [JsonPropertyName("companyCommTotal")]
+        public decimal CompanyCommTotal => Quantity * CompanyCommUnit;
     }
 }
