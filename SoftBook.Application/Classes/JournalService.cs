@@ -606,6 +606,9 @@ namespace SoftBook.Application.Services.Classes
 
 
         // changes made by Hetak dt 20052026 - optional transaction keeps sale header, lines, and JV atomic.
+        // Modified 29-07-2026: revised MRP sales explicitly mark InvSubType = "Sales-MRP".
+        // JV keeps VType = "Sales" for legacy reports but mirrors the saved header totals
+        // and writes AdjustVType = "Sales-MRP" so MRP reports can distinguish them.
         public async Task<DbResult> GenerateJournalFromSaleAsync(SalePur header, IEnumerable<SalePurTran> lines, IDbTransaction? transaction = null)
         {
             try
@@ -626,28 +629,35 @@ namespace SoftBook.Application.Services.Classes
                 if (header.TotDiscount != 0 && discountAccountId == 0) return DbResult.Failure("Discount Account not mapped in Ledger Settings. Please set it in Masters -> Ledger Settings.");
                 if ((header.RoundOff ?? 0) != 0 && roundOffAccountId == 0) return DbResult.Failure("Round Off Account not mapped in Ledger Settings. Please set it in Masters -> Ledger Settings.");
 
+                bool isMrpStyle = string.Equals(header.InvSubType, "Sales-MRP", StringComparison.OrdinalIgnoreCase);
+                decimal jvTaxable = header.TaxableAmount ?? 0;
+                decimal jvCgst = header.CgstAmount ?? 0;
+                decimal jvSgst = header.SgstAmount ?? 0;
+                decimal jvIgst = header.IgstAmount ?? 0;
+                decimal jvGrandTotal = header.GrandTotal ?? 0;
+                decimal jvRoundOff = header.RoundOff ?? 0;
+                string? adjustVType = isMrpStyle ? "Sales-MRP" : null;
+
                 var entries = new List<JournalVoucher>();
 
                 // --- 7-Line Breakdown Logic using Account 0 as Contra ---
 
                 // 1. Final Invoice Amount (Dr: Party, Cr: 0)
-                entries.Add(CreateJVEntry(header, header.PartyId, 0, header.GrandTotal ?? 0, "Sales", $"Final Invoice Amount - Inv {header.InvNo}"));
+                entries.Add(CreateJVEntry(header, header.PartyId, 0, jvGrandTotal, "Sales", $"Final Invoice Amount - Inv {header.InvNo}"));
 
                 // 2. Taxable Amount (Dr: 0, Cr: Sales)
-                entries.Add(CreateJVEntry(header, 0, salesAccountId, header.TaxableAmount ?? 0, "Sales", $"Sales Taxable Value - Inv {header.InvNo}"));
+                entries.Add(CreateJVEntry(header, 0, salesAccountId, jvTaxable, "Sales", $"Sales Taxable Value - Inv {header.InvNo}"));
 
                 // 3. CGST (Dr: 0, Cr: CGST)
-                entries.Add(CreateJVEntry(header, 0, cgstOutputAccountId, header.CgstAmount ?? 0, "Sales", $"CGST Output - Inv {header.InvNo}"));
+                entries.Add(CreateJVEntry(header, 0, cgstOutputAccountId, jvCgst, "Sales", $"CGST Output - Inv {header.InvNo}"));
 
                 // 4. SGST (Dr: 0, Cr: SGST)
-                entries.Add(CreateJVEntry(header, 0, sgstOutputAccountId, header.SgstAmount ?? 0, "Sales", $"SGST Output - Inv {header.InvNo}"));
+                entries.Add(CreateJVEntry(header, 0, sgstOutputAccountId, jvSgst, "Sales", $"SGST Output - Inv {header.InvNo}"));
 
                 // 5. IGST (Dr: 0, Cr: IGST)
-                entries.Add(CreateJVEntry(header, 0, igstOutputAccountId, header.IgstAmount ?? 0, "Sales", $"IGST Output - Inv {header.InvNo}"));
+                entries.Add(CreateJVEntry(header, 0, igstOutputAccountId, jvIgst, "Sales", $"IGST Output - Inv {header.InvNo}"));
 
                 // 6. Discount (Sales)
-                // Positive Discount = Expense (Dr: Discount, Cr: 0)
-                // Negative Discount = Surcharge/Income (Dr: 0, Cr: Discount)
                 if (header.TotDiscount != 0)
                 {
                     long drAcc_D = header.TotDiscount > 0 ? discountAccountId : 0;
@@ -660,12 +670,15 @@ namespace SoftBook.Application.Services.Classes
                 }
 
                 // 7. Round Off (Dr: 0/RoundOff, Cr: RoundOff/0)
-                decimal roundOff = header.RoundOff ?? 0;
-                long drAcc_R = roundOff > 0 ? 0 : (roundOffAccountId != 0 ? roundOffAccountId : 0);
-                long crAcc_R = roundOff > 0 ? (roundOffAccountId != 0 ? roundOffAccountId : 0) : 0;
-                entries.Add(CreateJVEntry(header, drAcc_R, crAcc_R, Math.Abs(roundOff), "Sales", $"Round Off - Inv {header.InvNo}"));
+                long drAcc_R = jvRoundOff > 0 ? 0 : (roundOffAccountId != 0 ? roundOffAccountId : 0);
+                long crAcc_R = jvRoundOff > 0 ? (roundOffAccountId != 0 ? roundOffAccountId : 0) : 0;
+                entries.Add(CreateJVEntry(header, drAcc_R, crAcc_R, Math.Abs(jvRoundOff), "Sales", $"Round Off - Inv {header.InvNo}"));
 
-                for (int i = 0; i < entries.Count; i++) entries[i].GroupJvSrNo = i + 1;
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    entries[i].GroupJvSrNo = i + 1;
+                    entries[i].AdjustVType = adjustVType;
+                }
                 return await _journalRepository.SaveJournalGroupAsync(entries, header.SpUniqueCode.ToString(), transaction, null);
             }
             catch (Exception ex) { return DbResult.Failure(ex.Message); }

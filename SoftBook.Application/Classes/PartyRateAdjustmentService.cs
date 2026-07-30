@@ -68,10 +68,7 @@ namespace SoftBook.Application.Classes
             };
         }
 
-        public async Task<List<PartyRateAdjustmentSummaryItemDto>> GetSummaryListAsync(
-            int companyId,
-            string? partyType = "Customer,Trader",
-            bool onlyWithAddPrice = true)
+        public async Task<List<PartyRateAdjustmentSummaryItemDto>> GetSummaryListAsync(int companyId,string? partyType = "Customer,Trader",bool onlyWithAddPrice = true)
         {
             var paymentTerms = await _partyRepository.GetPaymentTermLookupAsync(companyId);
             var addPriceLookups = await _salePurRepository.GetAllAddPriceLookupsAsync(companyId);
@@ -128,10 +125,7 @@ namespace SoftBook.Application.Classes
         }
 
 
-        public async Task<List<PartyRateAdjustmentChangeItemDto>> GetChangeListAsync(
-            int companyId,
-            string? partyType = "Customer,Trader",
-            string? changeType = null)
+        public async Task<List<PartyRateAdjustmentChangeItemDto>> GetChangeListAsync(int companyId,string? partyType = "Customer,Trader",string? changeType = null)
         {
             var summary = await GetSummaryListAsync(companyId, partyType, onlyWithAddPrice: false);
             var changes = new List<PartyRateAdjustmentChangeItemDto>();

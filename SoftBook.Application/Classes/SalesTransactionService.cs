@@ -82,7 +82,18 @@ namespace SoftBook.Application.Services.Classes
 
             // Enforce Sales identity regardless of what frontend sends
             viewModel.Header.InvType = "Sales";
-            viewModel.Header.InvCategory = "Sales Order";
+            if (string.IsNullOrWhiteSpace(viewModel.Header.InvCategory))
+            {
+                viewModel.Header.InvCategory = "Sales Order";
+            }
+            else if (string.Equals(viewModel.Header.InvCategory, "other_sale", StringComparison.OrdinalIgnoreCase))
+            {
+                viewModel.Header.InvCategory = "other_sale";
+            }
+            else
+            {
+                viewModel.Header.InvCategory = "Sales Order";
+            }
             viewModel.Header.IgstPercent = 0;
             viewModel.Header.CgstPercent = 0;
             viewModel.Header.SgstPercent = 0;

@@ -84,5 +84,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
 
         Task<List<BelowPriceSalesReportDTO>> GetBelowPriceSalesReportAsync(int companyId, DateTime fromDate, DateTime toDate, string? filterType);
 
+        Task<List<CustomerOrderPaymentReportDTO>> GetCustomerOrderPaymentReportAsync(int companyId, DateTime reportDate, int? partyId);
+
     }
 }

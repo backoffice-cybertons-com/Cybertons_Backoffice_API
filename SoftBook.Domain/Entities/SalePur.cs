@@ -46,6 +46,16 @@ namespace SoftBook.Domain.Entities
         [Column("po_order_date")]
         public DateTime? PoOrderDate { get; set; }
 
+        /// <summary>
+        /// Transient field sent from the client to request PO number auto-generation.
+        /// Not persisted to DB — used only to drive AssignNextPONumberAsync in the repository.
+        /// Format: prefix string e.g. "PO" → generates PO001, PO002 ...
+        /// If null/empty, the client-supplied PoOrderNo is used as-is.
+        /// </summary>
+        [NotMapped]
+        [JsonPropertyName("poOrderSeries")]
+        public string? PoOrderSeries { get; set; }
+
         [Column("bill_id")]
         public int? BillId { get; set; }
 

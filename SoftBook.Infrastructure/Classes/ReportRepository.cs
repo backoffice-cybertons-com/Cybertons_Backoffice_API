@@ -1892,5 +1892,173 @@ namespace SoftBook.Infrastructure.Classes
             return rows;
         }
 
+        /// <summary>
+        /// Customers from tab_party_master with:
+        /// - Yesterday OS (JV + opening, as of start of report date)
+        /// - Yesterday Order (tab_sale_pur sales grand_total on yesterday)
+        /// - Today Payment (Income direct JV credits to party on report date)
+        /// - Today Order computed for UI (Excel uses formula)
+        /// </summary>
+        public async Task<List<CustomerOrderPaymentReportDTO>> GetCustomerOrderPaymentReportAsync(
+            int companyId,
+            DateTime reportDate,
+            int? partyId)
+        {
+            var today = reportDate.Date;
+            var yesterday = today.AddDays(-1);
+
+            const string sql = @"
+                WITH parties AS (
+                    SELECT
+                        p.party_id,
+                        COALESCE(p.display_name, '') AS display_name,
+                        COALESCE(p.accounts_receivable_account, p.party_id) AS ar_account,
+                        COALESCE(p.accounts_payable_account, p.party_id) AS ap_account,
+                        CASE
+                            WHEN UPPER(COALESCE(p.opening_balance_type, '')) = 'DR'
+                                THEN COALESCE(p.opening_balance, 0)::NUMERIC
+                            WHEN UPPER(COALESCE(p.opening_balance_type, '')) = 'CR'
+                                THEN -COALESCE(p.opening_balance, 0)::NUMERIC
+                            ELSE 0::NUMERIC
+                        END AS opening_balance
+                    FROM public.tab_party_master p
+                    WHERE p.company_id = @p_company_id
+                      AND LOWER(TRIM(COALESCE(p.party_type, ''))) IN ('customer', 'trader')
+                      AND (@p_party_id IS NULL OR p.party_id = @p_party_id)
+                ),
+                yesterday_orders AS (
+                    SELECT
+                        s.party_id,
+                        COALESCE(SUM(s.grand_total), 0) AS order_amt
+                    FROM public.tab_sale_pur s
+                    WHERE s.company_id = @p_company_id
+                      AND LOWER(TRIM(s.inv_type)) = 'sales'
+                      AND s.inv_date::date = @p_yesterday
+                      AND COALESCE(s.delete_flag, FALSE) = FALSE
+                      AND (@p_fiscal_year_id IS NULL OR s.fiscal_year_id = @p_fiscal_year_id)
+                    GROUP BY s.party_id
+                ),
+                today_payments AS (
+                    SELECT
+                        p.party_id,
+                        COALESCE(SUM(j.amount), 0) AS payment_amt
+                    FROM public.tab_jv j
+                    INNER JOIN parties p
+                        ON j.cr_account_code IN (p.ar_account, p.ap_account)
+                    WHERE j.jv_comp_code = @p_company_id
+                      AND j.jv_date::date = @p_today
+                      AND LOWER(TRIM(COALESCE(j.v_type, ''))) = 'income'
+                      AND COALESCE(j.delete_flag, FALSE) = FALSE
+                    GROUP BY p.party_id
+                ),
+                jv_dr AS (
+                    SELECT
+                        j.dr_account_code AS acc,
+                        SUM(j.amount) AS dr_amt
+                    FROM public.tab_jv j
+                    WHERE j.jv_comp_code = @p_company_id
+                      AND j.jv_date::date < @p_today
+                      AND COALESCE(j.delete_flag, FALSE) = FALSE
+                      AND j.dr_account_code IN (
+                            SELECT ar_account FROM parties
+                            UNION
+                            SELECT ap_account FROM parties
+                      )
+                    GROUP BY j.dr_account_code
+                ),
+                jv_cr AS (
+                    SELECT
+                        j.cr_account_code AS acc,
+                        SUM(j.amount) AS cr_amt
+                    FROM public.tab_jv j
+                    WHERE j.jv_comp_code = @p_company_id
+                      AND j.jv_date::date < @p_today
+                      AND COALESCE(j.delete_flag, FALSE) = FALSE
+                      AND j.cr_account_code IN (
+                            SELECT ar_account FROM parties
+                            UNION
+                            SELECT ap_account FROM parties
+                      )
+                    GROUP BY j.cr_account_code
+                )
+                SELECT
+                    p.party_id,
+                    p.display_name AS customer_name,
+                    (
+                        p.opening_balance
+                        + COALESCE(dr1.dr_amt, 0) + CASE WHEN p.ar_account <> p.ap_account THEN COALESCE(dr2.dr_amt, 0) ELSE 0 END
+                        - COALESCE(cr1.cr_amt, 0) - CASE WHEN p.ar_account <> p.ap_account THEN COALESCE(cr2.cr_amt, 0) ELSE 0 END
+                    ) AS yesterday_os,
+                    COALESCE(yo.order_amt, 0) AS yesterday_order,
+                    COALESCE(tp.payment_amt, 0) AS today_payment
+                FROM parties p
+                LEFT JOIN yesterday_orders yo ON yo.party_id = p.party_id
+                LEFT JOIN today_payments tp ON tp.party_id = p.party_id
+                LEFT JOIN jv_dr dr1 ON dr1.acc = p.ar_account
+                LEFT JOIN jv_dr dr2 ON dr2.acc = p.ap_account AND p.ar_account <> p.ap_account
+                LEFT JOIN jv_cr cr1 ON cr1.acc = p.ar_account
+                LEFT JOIN jv_cr cr2 ON cr2.acc = p.ap_account AND p.ar_account <> p.ap_account
+                WHERE
+                    (
+                        p.opening_balance
+                        + COALESCE(dr1.dr_amt, 0) + CASE WHEN p.ar_account <> p.ap_account THEN COALESCE(dr2.dr_amt, 0) ELSE 0 END
+                        - COALESCE(cr1.cr_amt, 0) - CASE WHEN p.ar_account <> p.ap_account THEN COALESCE(cr2.cr_amt, 0) ELSE 0 END
+                    ) <> 0
+                    OR COALESCE(yo.order_amt, 0) <> 0
+                    OR COALESCE(tp.payment_amt, 0) <> 0
+                ORDER BY p.display_name";
+
+            var rows = await ExecuteReaderAsync(sql, cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_today", NpgsqlTypes.NpgsqlDbType.Date) { Value = today });
+                cmd.Parameters.Add(new NpgsqlParameter("p_yesterday", NpgsqlTypes.NpgsqlDbType.Date) { Value = yesterday });
+                cmd.Parameters.Add(new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                {
+                    Value = (object?)partyId ?? DBNull.Value
+                });
+                cmd.Parameters.Add(new NpgsqlParameter("p_fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                {
+                    Value = (object?)_tenantProvider?.FiscalYearId ?? DBNull.Value
+                });
+            }, reader =>
+            {
+                var yesterdayOs = reader.IsDBNull(reader.GetOrdinal("yesterday_os"))
+                    ? 0m
+                    : Convert.ToDecimal(reader["yesterday_os"]);
+                var yesterdayOrder = reader.IsDBNull(reader.GetOrdinal("yesterday_order"))
+                    ? 0m
+                    : Convert.ToDecimal(reader["yesterday_order"]);
+                var todayPayment = reader.IsDBNull(reader.GetOrdinal("today_payment"))
+                    ? 0m
+                    : Convert.ToDecimal(reader["today_payment"]);
+
+                // Same logic as Excel: IF(E>C, E, E+(E-C))
+                var todayOrder = todayPayment > yesterdayOrder
+                    ? todayPayment
+                    : todayPayment + (todayPayment - yesterdayOrder);
+
+                // Term Days = Yesterday OS / Yesterday Order (Excel: =B/C)
+                var termDays = yesterdayOrder != 0 ? yesterdayOs / yesterdayOrder : 0m;
+
+                return new CustomerOrderPaymentReportDTO
+                {
+                    PartyId = reader.IsDBNull(reader.GetOrdinal("party_id"))
+                        ? 0
+                        : Convert.ToInt32(reader["party_id"]),
+                    CustomerName = reader["customer_name"]?.ToString() ?? string.Empty,
+                    ReportDate = today,
+                    YesterdayDate = yesterday,
+                    YesterdayOs = yesterdayOs,
+                    YesterdayOrder = yesterdayOrder,
+                    TermDays = termDays,
+                    TodayPayment = todayPayment,
+                    TodayOrder = todayOrder
+                };
+            }, CommandType.Text);
+
+            return rows;
+        }
+
     }
 }

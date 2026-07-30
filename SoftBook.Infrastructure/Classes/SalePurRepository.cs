@@ -112,6 +112,13 @@ namespace SoftBook.Infrastructure.Classes
         {
             try
             {
+                // Auto-generate PO number when PoOrderSeries is provided and no manual PO number was given.
+                // Must run inside the same transaction to participate in the advisory lock.
+                if (!string.IsNullOrWhiteSpace(entity.PoOrderSeries) && transaction is NpgsqlTransaction poTxn)
+                {
+                    await AssignNextPONumberAsync(poTxn.Connection!, poTxn, entity);
+                }
+
                 void BuildParameters(NpgsqlCommand cmd)
                 {
                     cmd.Parameters.AddWithValue("p_action", "INSERT");
@@ -139,6 +146,8 @@ namespace SoftBook.Infrastructure.Classes
                 try
                 {
                     await AssignNextInvoiceNumberAsync(externalTransaction.Connection!, externalTransaction, entity);
+                    if (!string.IsNullOrWhiteSpace(entity.PoOrderSeries))
+                        await AssignNextPONumberAsync(externalTransaction.Connection!, externalTransaction, entity);
 
                     var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
                     {
@@ -162,6 +171,8 @@ namespace SoftBook.Infrastructure.Classes
             try
             {
                 await AssignNextInvoiceNumberAsync(connection, localTransaction, entity);
+                if (!string.IsNullOrWhiteSpace(entity.PoOrderSeries))
+                    await AssignNextPONumberAsync(connection, localTransaction, entity);
 
                 var result = await ExecuteSingleReaderAsync("public.fn_sale_pur", cmd =>
                 {
@@ -229,6 +240,77 @@ namespace SoftBook.Infrastructure.Classes
             var nextNumber = lastNumber + 1;
             entity.InvNo = $"{prefix}{nextNumber.ToString().PadLeft(width, '0')}";
             entity.InvoiceSeriesIncrementNumber = nextNumber;
+        }
+
+        // -----------------------------------------------------------------------
+        // Hetak Modi 28-07-2026
+        // Generates the next PO Order number for other_purchase records.
+        // Uses the same advisory-lock pattern as AssignNextInvoiceNumberAsync to
+        // prevent duplicate PO numbers under concurrent inserts.
+        // Only runs when entity.PoOrderSeries is non-empty AND entity.PoOrderNo
+        // is blank — preserving manually entered PO numbers untouched.
+        // -----------------------------------------------------------------------
+        private async Task AssignNextPONumberAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, SalePur entity)
+        {
+            if (string.IsNullOrWhiteSpace(entity.PoOrderSeries))
+                return;
+
+            // If the user already entered a PO number manually, keep it
+            if (!string.IsNullOrWhiteSpace(entity.PoOrderNo))
+                return;
+
+            var prefix = entity.PoOrderSeries.Trim();
+            var fiscalYearKey = entity.FiscalYearId?.ToString() ?? "0";
+            var lockKey = $"sale-pur-po:{entity.CompanyId}:{fiscalYearKey}:Purchase:{prefix}";
+
+            // Advisory lock — same transaction scope, prevents concurrent duplicates
+            await using (var lockCommand = new NpgsqlCommand(
+                "SELECT pg_advisory_xact_lock(hashtext(@lock_key)::bigint)", connection, transaction))
+            {
+                lockCommand.Parameters.Add("lock_key", NpgsqlTypes.NpgsqlDbType.Text).Value = lockKey;
+                await lockCommand.ExecuteNonQueryAsync();
+            }
+
+            // Determine zero-padding width from existing PO numbers in this series
+            int width = 3; // default: PO001
+            var widthPattern = $"^{Regex.Escape(prefix)}([0-9]+)$";
+
+            await using (var widthCommand = new NpgsqlCommand(@"
+                SELECT MAX(LENGTH((regexp_match(po_order_no, @pattern))[1]))
+                FROM public.tab_sale_pur
+                WHERE company_id = @company_id
+                  AND COALESCE(delete_flag, false) = false
+                  AND po_order_no ~ @pattern
+                  AND (@fiscal_year_id IS NULL OR fiscal_year_id = @fiscal_year_id)", connection, transaction))
+            {
+                widthCommand.Parameters.Add("pattern", NpgsqlTypes.NpgsqlDbType.Text).Value = widthPattern;
+                widthCommand.Parameters.Add("company_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = entity.CompanyId;
+                widthCommand.Parameters.Add("fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.FiscalYearId ?? DBNull.Value;
+
+                var wResult = await widthCommand.ExecuteScalarAsync();
+                if (wResult != null && wResult != DBNull.Value)
+                    width = Math.Max(Convert.ToInt32(wResult), width);
+            }
+
+            // Find max existing PO number in this series
+            int lastNumber;
+            await using (var maxCommand = new NpgsqlCommand(@"
+                SELECT COALESCE(MAX((regexp_match(po_order_no, @pattern))[1]::integer), 0)
+                FROM public.tab_sale_pur
+                WHERE company_id = @company_id
+                  AND COALESCE(delete_flag, false) = false
+                  AND po_order_no ~ @pattern
+                  AND (@fiscal_year_id IS NULL OR fiscal_year_id = @fiscal_year_id)", connection, transaction))
+            {
+                maxCommand.Parameters.Add("pattern", NpgsqlTypes.NpgsqlDbType.Text).Value = widthPattern;
+                maxCommand.Parameters.Add("company_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = entity.CompanyId;
+                maxCommand.Parameters.Add("fiscal_year_id", NpgsqlTypes.NpgsqlDbType.Integer).Value = (object?)entity.FiscalYearId ?? DBNull.Value;
+
+                var result = await maxCommand.ExecuteScalarAsync();
+                lastNumber = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+            }
+
+            entity.PoOrderNo = $"{prefix}{(lastNumber + 1).ToString().PadLeft(width, '0')}";
         }
 
         // -----------------------------------------------------------------------

@@ -50,9 +50,16 @@ namespace SoftBook.Application.Services.Classes
             var fiscalYearId = viewModel.Header.FiscalYearId;
             var branchId = viewModel.Header.BranchId;
 
-            // Enforce Purchase identity and category similar to Sales
+            // Enforce Purchase identity; allow other_purchase category from client
             viewModel.Header.InvType = "Purchase";
-            viewModel.Header.InvCategory = "Purchase Order";
+            if (string.IsNullOrWhiteSpace(viewModel.Header.InvCategory))
+            {
+                viewModel.Header.InvCategory = "Purchase Order";
+            }
+            else if (string.Equals(viewModel.Header.InvCategory, "other_purchase", StringComparison.OrdinalIgnoreCase))
+            {
+                viewModel.Header.InvCategory = "other_purchase";
+            }
 
             // Double Validation: Recalculate overall header totals based on lines
             viewModel.Header.TotalQuantity = viewModel.Lines.Sum(l => l.Quantity);

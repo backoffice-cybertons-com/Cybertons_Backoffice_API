@@ -753,5 +753,32 @@ namespace SoftBook.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Customer Yesterday OS / Yesterday Order / Today Payment (Income Direct JV).
+        /// Today Order is returned computed for UI; Excel export sets it as a formula.
+        /// </summary>
+        [HttpGet("customer-order-payment")]
+        public async Task<IActionResult> GetCustomerOrderPaymentReport(
+            [FromQuery] int companyId,
+            [FromQuery] DateTime? reportDate,
+            [FromQuery] int? partyId)
+        {
+            try
+            {
+                if (companyId == 0)
+                {
+                    return BadRequest("Company context not found.");
+                }
+
+                var date = (reportDate ?? DateTime.Today).Date;
+                var result = await _reportService.GetCustomerOrderPaymentReportAsync(companyId, date, partyId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

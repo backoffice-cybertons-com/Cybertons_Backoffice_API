@@ -753,6 +753,11 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetBelowPriceSalesReportAsync(companyId, fromDate, toDate, filterType);
         }
 
+        public async Task<List<CustomerOrderPaymentReportDTO>> GetCustomerOrderPaymentReportAsync(int companyId, DateTime reportDate, int? partyId)
+        {
+            return await _reportRepository.GetCustomerOrderPaymentReportAsync(companyId, reportDate, partyId);
+        }
+
         public async Task<byte[]> GenerateGstCaReportExcelAsync(int companyId, DateTime fromDate, DateTime toDate)
         {
             using var wb = new XLWorkbook();
