@@ -680,10 +680,7 @@ namespace SoftBook.Infrastructure.Classes
         //            }
         //}
 
-        public async Task<List<InvWiseDTO>> GetSalePurInvWiseAsync(
-      int companyId,
-      string? invType,
-      string? where)
+        public async Task<List<InvWiseDTO>> GetSalePurInvWiseAsync(int companyId,string? invType,string? where)
         {
             Console.WriteLine($"API PARAMS => companyId={companyId}, invType={invType}, where={where}");
             try
@@ -745,10 +742,7 @@ namespace SoftBook.Infrastructure.Classes
 
 
 
-        public async Task<IEnumerable<SalePurchaseRegisterMonthwiseDTO>> GetSalePurchaseRegisterMonthwiseAsync(
-           int companyId,
-           string? invType,
-           string? where)
+        public async Task<IEnumerable<SalePurchaseRegisterMonthwiseDTO>> GetSalePurchaseRegisterMonthwiseAsync(int companyId,string? invType,string? where)
         {
             try
             {
@@ -959,6 +953,7 @@ namespace SoftBook.Infrastructure.Classes
                             return await ExecuteReaderAsync(
                                 @"SELECT f.*,
                                          pm.kam,
+                                         pm.phone_mobile,
                                          pm.recovery_agent,
                                          pm.sumul_incharge,
                                          zm.zone_name,
@@ -1013,7 +1008,7 @@ namespace SoftBook.Infrastructure.Classes
 
                                         PartyType = reader["party_type"]?.ToString(),
 
-                                        Contact = reader["contact"]?.ToString(),
+                                        Contact = string.IsNullOrWhiteSpace(reader["contact"]?.ToString()) ? reader["phone_mobile"]?.ToString() : reader["contact"]?.ToString(),
 
                                         OpeningBalanceType = reader["opening_balance_type"]?.ToString(),
 
@@ -2058,6 +2053,168 @@ namespace SoftBook.Infrastructure.Classes
             }, CommandType.Text);
 
             return rows;
+        }
+
+        public async Task<List<MonthlyCommissionReportDTO>> GetMonthlyCommissionReportAsync(
+            int companyId, 
+            DateTime fromDate, 
+            DateTime toDate, 
+            int? partyId,
+            string groupBy = "date")
+        {
+            var p_from_date = fromDate.Date;
+            var p_to_date = toDate.Date;
+
+            const string sql = @"
+SELECT 
+    out_party_id AS party_id,
+    out_display_name AS display_name,
+    out_d AS d,
+    out_inv_no AS inv_no,
+    out_product_name AS product_name,
+    out_crate_ordered AS crate_ordered,
+    out_total_mrp AS total_mrp,
+    out_avg_mrp AS avg_mrp,
+    out_seven_days_avg_order AS seven_days_avg_order,
+    out_avg_depo_price AS avg_depo_price,
+    out_total_depo_amt AS total_depo_amt,
+    out_tot_comm AS tot_comm,
+    out_avg_comm_per_crate AS avg_comm_per_crate,
+    out_os_as_on AS os_as_on,
+    out_payment AS payment,
+    out_avg_term AS avg_term,
+    out_adjust_commission AS adjust_commission,
+    out_net_commission AS net_commission,
+    out_comm_amount AS comm_amount
+FROM public.fn_monthly_commission_report(@p_company_id, @p_from_date, @p_to_date, @p_party_id, @p_group_by);";
+
+            var rawRows = await ExecuteReaderAsync(sql, cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = p_from_date });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date) { Value = p_to_date });
+                cmd.Parameters.Add(new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                {
+                    Value = (object?)partyId ?? DBNull.Value
+                });
+                cmd.Parameters.AddWithValue("p_group_by", (object?)groupBy?.ToLower() ?? "date");
+            }, reader =>
+            {
+                decimal GetDecimal(string col) =>
+                    reader.IsDBNull(reader.GetOrdinal(col)) ? 0m : Convert.ToDecimal(reader[col]);
+
+                return new
+                {
+                    PartyId = reader.IsDBNull(reader.GetOrdinal("party_id")) ? 0 : Convert.ToInt32(reader["party_id"]),
+                    DisplayName = reader["display_name"]?.ToString() ?? "",
+                    D = reader.IsDBNull(reader.GetOrdinal("d")) ? p_from_date : Convert.ToDateTime(reader["d"]),
+                    InvNo = reader.IsDBNull(reader.GetOrdinal("inv_no")) ? null : reader["inv_no"]?.ToString(),
+                    ProductName = reader.IsDBNull(reader.GetOrdinal("product_name")) ? null : reader["product_name"]?.ToString(),
+                    CrateOrdered = GetDecimal("crate_ordered"),
+                    TotalMrp = GetDecimal("total_mrp"),
+                    AvgMrp = GetDecimal("avg_mrp"),
+                    SevenDaysAvgOrder = GetDecimal("seven_days_avg_order"),
+                    AvgDepoPrice = GetDecimal("avg_depo_price"),
+                    TotalDepoAmt = GetDecimal("total_depo_amt"),
+                    TotComm = GetDecimal("tot_comm"),
+                    AvgCommPerCrate = GetDecimal("avg_comm_per_crate"),
+                    OsAsOn = GetDecimal("os_as_on"),
+                    Payment = GetDecimal("payment"),
+                    AvgTerm = GetDecimal("avg_term"),
+                    AdjustCommission = GetDecimal("adjust_commission"),
+                    NetCommission = GetDecimal("net_commission"),
+                    CommAmount = GetDecimal("comm_amount"),
+                };
+            }, CommandType.Text);
+
+            var results = new List<MonthlyCommissionReportDTO>();
+            int rangeDays = Math.Max((p_to_date - p_from_date).Days + 1, 1);
+
+            if (partyId == null && groupBy.ToLower() == "date")
+            {
+                // Summary mode (Date-wise, All Parties): aggregate daily rows per party
+                var dict = new Dictionary<int, (string Name, decimal Crates, decimal Mrp, decimal Depo, decimal Comm, decimal Payment, decimal CommAmt, decimal OsSum, decimal AvgSum, int DayCount)>();
+                foreach (var r in rawRows)
+                {
+                    if (!dict.ContainsKey(r.PartyId))
+                        dict[r.PartyId] = (r.DisplayName, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+                    var e = dict[r.PartyId];
+                    dict[r.PartyId] = (
+                        e.Name,
+                        e.Crates + r.CrateOrdered,
+                        e.Mrp + r.TotalMrp,
+                        e.Depo + r.TotalDepoAmt,
+                        e.Comm + r.TotComm,
+                        e.Payment + r.Payment,
+                        e.CommAmt + r.CommAmount,
+                        e.OsSum + r.OsAsOn,
+                        e.AvgSum + r.SevenDaysAvgOrder,
+                        e.DayCount + 1
+                    );
+                }
+
+                foreach (var kvp in dict)
+                {
+                    var e = kvp.Value;
+                    int dc = Math.Max(e.DayCount, 1);
+                    var avgMrp = e.Crates > 0 ? e.Mrp / e.Crates : 0m;
+                    var avgDepo = e.Crates > 0 ? e.Depo / e.Crates : 0m;
+                    var avgComm = e.Crates > 0 ? e.Comm / e.Crates : 0m;
+                    var netComm = e.Crates > 0 ? e.CommAmt / e.Crates : 0m;
+                    var avgOs = e.OsSum / dc;
+                    var avgSeven = e.AvgSum / dc;
+                    var avgTerm = avgSeven > 0 ? avgOs / avgSeven : 0m;
+
+                    results.Add(new MonthlyCommissionReportDTO
+                    {
+                        DateOrParty = e.Name,
+                        CrateOrdered = e.Crates,
+                        TotalMrpOrderAmount = e.Mrp,
+                        AvgMrp = avgMrp,
+                        SevenDaysAvgOrder = avgSeven,
+                        AvgDepoPrice = avgDepo,
+                        AvgDistAmount = e.Depo,
+                        TotComm = e.Comm,
+                        AvgCommPerCrate = avgComm,
+                        OsAsOn = avgOs,
+                        Payment = e.Payment,
+                        AvgTerm = avgTerm,
+                        AdjustCommission = avgComm - netComm,
+                        NetCommission = netComm,
+                        CommAmount = e.CommAmt,
+                    });
+                }
+            }
+            else
+            {
+                // Party-wise daily rows
+                foreach (var r in rawRows)
+                {
+                    results.Add(new MonthlyCommissionReportDTO
+                    {
+                        DateOrParty = partyId == null ? r.DisplayName : r.D.ToString("dd-MMM-yyyy"),
+                        InvNo = r.InvNo,
+                        ProductName = r.ProductName,
+                        CrateOrdered = r.CrateOrdered,
+                        TotalMrpOrderAmount = r.TotalMrp,
+                        AvgMrp = r.AvgMrp,
+                        SevenDaysAvgOrder = r.SevenDaysAvgOrder,
+                        AvgDepoPrice = r.AvgDepoPrice,
+                        AvgDistAmount = r.TotalDepoAmt,
+                        TotComm = r.TotComm,
+                        AvgCommPerCrate = r.AvgCommPerCrate,
+                        OsAsOn = r.OsAsOn,
+                        Payment = r.Payment,
+                        AvgTerm = r.AvgTerm,
+                        AdjustCommission = r.AdjustCommission,
+                        NetCommission = r.NetCommission,
+                        CommAmount = r.CommAmount,
+                    });
+                }
+            }
+
+            return results;
         }
 
     }

@@ -251,6 +251,20 @@ namespace SoftBook.Domain.Data
       }
     }
 
+    protected decimal? SafeGetNullableDecimal(NpgsqlDataReader reader, string columnName)
+    {
+      try
+      {
+        int ordinal = reader.GetOrdinal(columnName);
+        if (reader.IsDBNull(ordinal)) return null;
+        return Convert.ToDecimal(reader.GetValue(ordinal));
+      }
+      catch (IndexOutOfRangeException)
+      {
+        return null;
+      }
+    }
+
     protected DateTime? SafeGetDateTime(NpgsqlDataReader reader, string columnName, DateTime? defaultValue = null)
     {
       try

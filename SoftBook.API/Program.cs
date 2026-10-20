@@ -9,6 +9,7 @@ using SoftBook.Application.Interfaces;
 using SoftBook.Application.Services; // For EmailService
 using SoftBook.Application.Services.Classes;
 using SoftBook.Application.Services.Interfaces;
+using SoftBook.Domain.DTOs.GstIrn;
 using SoftBook.Domain.Data;
 using SoftBook.Domain.RepositoryInterfaces;
 using SoftBook.Domain.Services.Interfaces; // For IAuditLogService
@@ -164,11 +165,11 @@ builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IPermissionRepository, RolePermissionRepository>();
 builder.Services.AddScoped<IPartyTypeRepository, PartyTypeRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
-            builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
-            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-            builder.Services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
+builder.Services.AddScoped<ITaskTemplateRepository, TaskTemplateRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
 builder.Services.AddScoped<IOutstandingTermConfigRepository, OutstandingTermConfigRepository>();
-            builder.Services.AddHostedService<ReminderBackgroundService>();
+builder.Services.AddHostedService<ReminderBackgroundService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 
 
@@ -197,16 +198,19 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IPartyTypeService, PartyTypeService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
-            builder.Services.AddScoped<ITaskTemplateService, TaskTemplateService>();
-            builder.Services.AddScoped<INotificationService, NotificationService>();
-            builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddScoped<ITaskTemplateService, TaskTemplateService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 builder.Services.AddScoped<IOutstandingTermConfigService, OutstandingTermConfigService>();
-            builder.Services.AddScoped<IRecurrenceService, RecurrenceService>();
+builder.Services.AddScoped<IRecurrenceService, RecurrenceService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IGstIrnRepository, GstIrnRepository>();
+builder.Services.AddScoped<IGstIrnService, GstIrnService>();
 
 
 
-builder.Services.AddScoped<EmailService>();
+builder.Services.Configure<GstIrnOptions>(builder.Configuration.GetSection(GstIrnOptions.SectionName));
+builder.Services.AddHttpClient("GstIrn");
 
 var app = builder.Build();
 

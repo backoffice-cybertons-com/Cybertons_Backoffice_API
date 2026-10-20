@@ -15,12 +15,18 @@ namespace SoftBook.Application.Services.Classes
         private readonly ISalePurRepository _salePurRepository;
         private readonly IJournalService _journalService;
         private readonly IProductRepository _productRepository;
+        private readonly IPartyRepository _partyRepository;
 
-        public SalesTransactionService(ISalePurRepository salePurRepository, IJournalService journalService, IProductRepository productRepository)
+        public SalesTransactionService(
+            ISalePurRepository salePurRepository,
+            IJournalService journalService,
+            IProductRepository productRepository,
+            IPartyRepository partyRepository)
         {
             _salePurRepository = salePurRepository;
             _journalService = journalService;
             _productRepository = productRepository;
+            _partyRepository = partyRepository;
         }
 
         public async Task<List<SalePur>> GetAllAsync(int companyId)
@@ -103,6 +109,10 @@ namespace SoftBook.Application.Services.Classes
             viewModel.Header.TotalQuantity = viewModel.Lines.Sum(l => l.Quantity);
             viewModel.Header.InvoiceTotal = viewModel.Lines.Sum(l => l.Amount);
             viewModel.Header.FinalInvoiceAmount = viewModel.Header.GrandTotal;
+
+            // Customer active / daily sale limit / credit limit checks
+            var limitCheck = await ValidateCustomerLimitsAsync(viewModel, isNew);
+            if (!limitCheck.Success) return limitCheck;
 
             // Snapshot COGS, dealer price, and SP commission unit for each line item
             var spCommUnit = await ResolveSpCommUnitAsync(
@@ -238,6 +248,85 @@ namespace SoftBook.Application.Services.Classes
         public async Task<decimal> GetPartyOutstandingAsync(int companyId, int partyId)
         {
             return await _salePurRepository.GetPartyOutstandingAsync(companyId, partyId);
+        }
+
+        private async Task<DbResult> ValidateCustomerLimitsAsync(SalesTransactionViewModel viewModel, bool isNew)
+        {
+            var header = viewModel.Header;
+            if (header.PartyId <= 0)
+            {
+                return DbResult.Failure("Customer is required.");
+            }
+
+            var party = await _partyRepository.GetByIdAsync(header.PartyId);
+            if (party == null)
+            {
+                return DbResult.Failure("Customer not found.");
+            }
+
+            if (!party.IsActive)
+            {
+                return DbResult.Failure("Sales order not allowed: This customer is inactive. Please activate the customer in Party Master or choose another customer.");
+            }
+
+            var newBillAmount = header.GrandTotal ?? 0;
+            decimal existingBillAmount = 0;
+            SalePur? existingHeader = null;
+
+            if (!isNew)
+            {
+                existingHeader = await _salePurRepository.GetByIdAsync(header.CompanyId, header.SpUniqueCode);
+                if (existingHeader != null)
+                {
+                    existingBillAmount = existingHeader.GrandTotal ?? 0;
+                }
+            }
+
+            var dailyLimit = party.DailySaleLimit ?? 0;
+            if (dailyLimit > 0)
+            {
+                var invDate = header.InvDate.Date;
+                var todaysSales = await _salePurRepository.GetTodaysInvoiceAmountAsync(
+                    header.CompanyId, header.PartyId, invDate);
+
+                if (existingHeader != null && existingHeader.InvDate.Date == invDate)
+                {
+                    todaysSales -= existingBillAmount;
+                }
+
+                if (todaysSales < 0) todaysSales = 0;
+
+                if (todaysSales + newBillAmount > dailyLimit)
+                {
+                    return DbResult.Failure(
+                        $"Sales order not allowed: Daily sale limit exceeded. Customer daily limit: {dailyLimit:0.00}, " +
+                        $"Today's sales: {todaysSales:0.00}, This order: {newBillAmount:0.00}.");
+                }
+            }
+
+            var creditLimit = party.CreditLimit ?? 0;
+            if (creditLimit > 0)
+            {
+                var outstanding = await _salePurRepository.GetPartyOutstandingAsync(
+                    header.CompanyId, header.PartyId);
+
+                // On edit, outstanding already includes this invoice's AR effect — remove old bill first.
+                if (!isNew)
+                {
+                    outstanding -= existingBillAmount;
+                }
+
+                if (outstanding < 0) outstanding = 0;
+
+                if (outstanding + newBillAmount > creditLimit)
+                {
+                    return DbResult.Failure(
+                        $"Sales order not allowed: Credit limit exceeded. Customer credit limit: {creditLimit:0.00}, " +
+                        $"Outstanding: {outstanding:0.00}, This order: {newBillAmount:0.00}.");
+                }
+            }
+
+            return DbResult.Ok();
         }
 
         private async Task<decimal> ResolveSpCommUnitAsync(int companyId, int partyId, DateTime invoiceDate)

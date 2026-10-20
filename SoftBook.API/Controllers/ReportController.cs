@@ -780,5 +780,33 @@ namespace SoftBook.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Monthly Commission Report: date-wise for a party, or summary per party for all parties.
+        /// Columns: A-O as per screenshot.
+        /// </summary>
+        [HttpGet("monthly-commission")]
+        public async Task<IActionResult> GetMonthlyCommissionReport(
+            [FromQuery] int companyId,
+            [FromQuery] DateTime? fromDate,
+            [FromQuery] DateTime? toDate,
+            [FromQuery] int? partyId,
+            [FromQuery] string groupBy = "date")
+        {
+            try
+            {
+                if (companyId == 0)
+                    return BadRequest("Company context not found.");
+
+                var from = (fromDate ?? DateTime.Today.AddDays(-30)).Date;
+                var to = (toDate ?? DateTime.Today).Date;
+                var result = await _reportService.GetMonthlyCommissionReportAsync(companyId, from, to, partyId, groupBy);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }
