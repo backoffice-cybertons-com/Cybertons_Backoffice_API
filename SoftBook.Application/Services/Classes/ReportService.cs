@@ -1020,5 +1020,9 @@ namespace SoftBook.Application.Services.Classes
 
             ws.Columns().AdjustToContents();
         }
+        public async Task<List<MonthlyCommissionReportDTO>> GetMonthlyCommissionReportAsync(int companyId, DateTime fromDate, DateTime toDate, int? partyId, string groupBy)
+        {
+            return await _reportRepository.GetMonthlyCommissionReportAsync(companyId, fromDate, toDate, partyId, groupBy);
+        }
     }
 }

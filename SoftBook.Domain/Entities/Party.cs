@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Data;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace SoftBook.Domain.Entities
 {
@@ -51,6 +52,18 @@ namespace SoftBook.Domain.Entities
     public string? Remarks { get; set; }
     public string? PartyProfile { get; set; }
     public decimal? RateDiff { get; set; }
+    /// <summary>Max total sales amount allowed for this customer in a single day. Null/0 = no limit.</summary>
+    [Column("daily_sale_limit")]
+    [JsonPropertyName("dailySaleLimit")]
+    public decimal? DailySaleLimit { get; set; }
+    /// <summary>Max outstanding (receivable) allowed. Null/0 = no limit.</summary>
+    [Column("credit_limit")]
+    [JsonPropertyName("creditLimit")]
+    public decimal? CreditLimit { get; set; }
+    /// <summary>When false, customer is hidden from sales-order customer list.</summary>
+    [Column("is_active")]
+    [JsonPropertyName("isActive")]
+    public bool IsActive { get; set; } = true;
     public string? KamMobile { get; set; }
     public string? RecoveryMobile { get; set; }
     public string? SumulIncharge { get; set; }

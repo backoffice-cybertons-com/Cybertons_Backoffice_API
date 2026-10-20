@@ -133,7 +133,7 @@ namespace SoftBook.Application.Services.Classes
             int partyId = viewModel.Party.PartyId;
             
             // 1. Update Party
-            var result = await _partyRepository.UpdateAsync(viewModel.Party);
+            var result = await _partyRepository.UpdateAsync(viewModel.Party, userId);
             if (!result.Success) return result;
 
             // 2. Update Addresses (Delete Existing & Re-insert)
