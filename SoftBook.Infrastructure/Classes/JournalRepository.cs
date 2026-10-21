@@ -153,6 +153,35 @@ namespace SoftBook.Infrastructure.Classes
                 });
         }
 
+        public async Task<IEnumerable<JournalVoucher>> GetJournalsByDateAndAccountAsync(long companyId, DateTime jvDate, long accountCode)
+        {
+            return await ExecuteRawQueryAsync(
+                "SELECT * FROM public.fn_get_journals_by_date_account(" +
+                "p_company_id := @companyId, p_jv_date := @jvDate, p_account_code := @accountCode)",
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("companyId", (int)companyId);
+                    cmd.Parameters.Add(new NpgsqlParameter("jvDate", NpgsqlTypes.NpgsqlDbType.Date)
+                    {
+                        Value = jvDate.Date
+                    });
+                    cmd.Parameters.AddWithValue("accountCode", accountCode);
+                },
+                reader => new JournalVoucher
+                {
+                    JvCode = reader["jv_code"] != DBNull.Value ? Convert.ToInt64(reader["jv_code"]) : 0,
+                    GCode = reader["g_code"]?.ToString(),
+                    JvDate = Convert.ToDateTime(reader["jv_date"]),
+                    VType = reader["v_type"]?.ToString(),
+                    Description = reader["description"]?.ToString(),
+                    Amount = Convert.ToDecimal(reader["amount"]),
+                    DrAccountCode = reader["dr_account_code"] != DBNull.Value ? Convert.ToInt64(reader["dr_account_code"]) : 0,
+                    CrAccountCode = reader["cr_account_code"] != DBNull.Value ? Convert.ToInt64(reader["cr_account_code"]) : 0,
+                    DrAccountName = reader["dr_account_name"]?.ToString(),
+                    CrAccountName = reader["cr_account_name"]?.ToString()
+                });
+        }
+
         public async Task<DbResult> SaveJournalGroupAsync(IEnumerable<JournalVoucher> entries, string? gCodeToDelete = null, IDbTransaction? transaction = null, int? userId = null)
         {
             NpgsqlConnection? connection = (transaction?.Connection as NpgsqlConnection);

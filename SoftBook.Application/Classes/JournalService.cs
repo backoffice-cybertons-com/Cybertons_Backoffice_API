@@ -887,6 +887,11 @@ namespace SoftBook.Application.Services.Classes
             return await _journalRepository.GetDirectJournalsAsync(companyId, vType);
         }
 
+        public async Task<IEnumerable<JournalVoucher>> GetJournalsByDateAndAccountAsync(long companyId, DateTime jvDate, long accountCode)
+        {
+            return await _journalRepository.GetJournalsByDateAndAccountAsync(companyId, jvDate, accountCode);
+        }
+
         private long? MapLongValue(IDictionary<string, object> dict, string key)
         {
             if (!dict.ContainsKey(key) || dict[key] == null) 

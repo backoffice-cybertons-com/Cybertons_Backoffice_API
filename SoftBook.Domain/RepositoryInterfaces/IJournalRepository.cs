@@ -15,5 +15,6 @@ namespace SoftBook.Domain.RepositoryInterfaces
         Task<DbResult> SaveJournalGroupAsync(IEnumerable<JournalVoucher> entries, string? gCodeToDelete = null, IDbTransaction? transaction = null, int? userId = null);
         Task<List<JournalVoucher>> GetByGCodeAsync(string gCode);
         Task<IEnumerable<JournalVoucher>> GetDirectJournalsAsync(long companyId, string vType);
+        Task<IEnumerable<JournalVoucher>> GetJournalsByDateAndAccountAsync(long companyId, DateTime jvDate, long accountCode);
     }
 }

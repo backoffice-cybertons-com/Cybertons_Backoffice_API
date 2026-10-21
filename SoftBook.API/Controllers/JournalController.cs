@@ -42,6 +42,22 @@ namespace SoftBook.API.Controllers
             return Ok(results);
         }
 
+        /// <summary>
+        /// Existing JV entries for selected transaction date + account
+        /// (dr_account_code OR cr_account_code match, delete_flag = false).
+        /// </summary>
+        [HttpGet("by-date-account")]
+        public async Task<IActionResult> GetJournalsByDateAndAccount([FromQuery] DateTime jvDate, [FromQuery] long accountCode)
+        {
+            if (accountCode <= 0)
+            {
+                return BadRequest(new { success = false, error = "accountCode is required." });
+            }
+
+            var results = await _journalService.GetJournalsByDateAndAccountAsync(GetCompanyId(), jvDate, accountCode);
+            return Ok(results);
+        }
+
         [HttpPost("direct")]
         public async Task<ActionResult<DbResult>> SaveDirectJournal([FromBody] List<JournalVoucher> entries)
         {
