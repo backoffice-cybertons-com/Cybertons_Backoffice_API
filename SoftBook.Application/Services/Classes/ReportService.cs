@@ -103,6 +103,11 @@ namespace SoftBook.Application.Services.Classes
             return await _reportRepository.GetTrialBalance(companyId, date);
         }
 
+        public async Task<List<TrialBalanceDTO>> GetTrialBalanceGroupWise(int companyId, DateTime date)
+        {
+            return await _reportRepository.GetTrialBalanceGroupWise(companyId, date);
+        }
+
         public async Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate)
         {
             return await _reportRepository.GetBalanceSheetReportAsync(companyId, asOfDate);

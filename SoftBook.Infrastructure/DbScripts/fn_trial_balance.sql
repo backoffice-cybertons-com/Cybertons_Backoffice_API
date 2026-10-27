@@ -1,0 +1,7 @@
+-- Trial Balance functions used by API:
+--   Generate (flat):     SELECT * FROM fn_trial_balance(company_id, date);
+--   Group Wise:          SELECT * FROM fn_trial_balance_groupwise(company_id, date);
+--
+-- Group-wise is expected to return at least:
+--   account_name, debit, credit, report_group
+-- (API also accepts aliases: group_name / account_group / grp for the group column)

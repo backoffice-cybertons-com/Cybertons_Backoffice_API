@@ -823,16 +823,77 @@ namespace SoftBook.Infrastructure.Classes
         {
             return new TrialBalanceDTO
             {
-                AccountName = reader.IsDBNull(reader.GetOrdinal("account_name"))? null: reader.GetString(reader.GetOrdinal("account_name")),
-
-                Debit = reader.IsDBNull(reader.GetOrdinal("debit"))? 0: reader.GetDecimal(reader.GetOrdinal("debit")),
-
-                Credit = reader.IsDBNull(reader.GetOrdinal("credit"))? 0: reader.GetDecimal(reader.GetOrdinal("credit"))
+                AccountName = reader.IsDBNull(reader.GetOrdinal("account_name")) ? null : reader.GetString(reader.GetOrdinal("account_name")),
+                Debit = reader.IsDBNull(reader.GetOrdinal("debit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("debit")),
+                Credit = reader.IsDBNull(reader.GetOrdinal("credit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("credit")),
+                ReportGroup = null
             };
         },
         CommandType.Text
     );
 }
+
+        public async Task<List<TrialBalanceDTO>> GetTrialBalanceGroupWise(int companyId, DateTime date)
+        {
+            return await ExecuteReaderAsync(
+                "SELECT * FROM fn_trial_balance_groupwise(@p_company_id, @p_date)",
+                cmd =>
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter("p_company_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                    {
+                        Value = companyId
+                    });
+
+                    cmd.Parameters.Add(new NpgsqlParameter("p_date", NpgsqlTypes.NpgsqlDbType.Date)
+                    {
+                        Value = date
+                    });
+                },
+                reader =>
+                {
+                    string? GetNullableString(params string[] names)
+                    {
+                        foreach (var name in names)
+                        {
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                return reader.IsDBNull(i) ? null : reader.GetValue(i)?.ToString();
+                            }
+                        }
+                        return null;
+                    }
+
+                    decimal GetDecimal(params string[] names)
+                    {
+                        foreach (var name in names)
+                        {
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                return reader.IsDBNull(i) ? 0 : Convert.ToDecimal(reader.GetValue(i));
+                            }
+                        }
+                        return 0;
+                    }
+
+                    var reportGroup = GetNullableString("report_group", "group_name", "account_group", "grp");
+                    if (string.IsNullOrWhiteSpace(reportGroup))
+                        reportGroup = "Others";
+
+                    return new TrialBalanceDTO
+                    {
+                        AccountName = GetNullableString("account_name", "ledger_name", "name"),
+                        Debit = GetDecimal("debit", "total_debit"),
+                        Credit = GetDecimal("credit", "total_credit"),
+                        ReportGroup = reportGroup.Trim()
+                    };
+                },
+                CommandType.Text
+            );
+        }
 
         public async Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate)
         {

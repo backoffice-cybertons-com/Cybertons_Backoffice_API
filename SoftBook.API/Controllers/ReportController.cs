@@ -372,6 +372,13 @@ namespace SoftBook.API.Controllers
             return Ok(result);
         }
 
+        [HttpGet("trial-balance-groupwise")]
+        public async Task<IActionResult> GetTrialBalanceGroupWise([FromQuery] int companyId, [FromQuery] DateTime date)
+        {
+            var result = await _reportService.GetTrialBalanceGroupWise(companyId, date);
+            return Ok(result);
+        }
+
         [HttpGet("balance-sheet")]
         public async Task<IActionResult> GetBalanceSheet([FromQuery] int companyId, [FromQuery] DateTime date)
         {

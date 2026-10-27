@@ -9,5 +9,6 @@ namespace SoftBook.Domain.DTOs
         public string AccountName { get; set; }
         public decimal Debit { get; set; }
         public decimal Credit { get; set; }
+        public string ReportGroup { get; set; }
     }
 }

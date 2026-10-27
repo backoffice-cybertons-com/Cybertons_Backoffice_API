@@ -77,7 +77,7 @@ namespace SoftBook.Domain.Data
 
       await using var connection = new NpgsqlConnection(GetConnectionString());
       await connection.OpenAsync();
-      Console.WriteLine($"[BaseDAL Diagnostic] Connected to Database: '{connection.Database}' for Query: {commandText}");
+      // Console.WriteLine($"[BaseDAL Diagnostic] Connected to Database: '{connection.Database}' for Query: {commandText}");
 
       await using var command = new NpgsqlCommand(commandText, connection)
       {
@@ -101,7 +101,7 @@ namespace SoftBook.Domain.Data
     {
       await using var connection = new NpgsqlConnection(GetConnectionString());
         await connection.OpenAsync();
-      Console.WriteLine($"[BaseDAL Diagnostic] Connected to Database: '{connection.Database}' for {commandText}");
+      // Console.WriteLine($"[BaseDAL Diagnostic] Connected to Database: '{connection.Database}' for {commandText}");
 
       await using var command = new NpgsqlCommand(commandText, connection)
       {

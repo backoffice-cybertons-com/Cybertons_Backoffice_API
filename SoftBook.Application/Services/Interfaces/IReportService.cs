@@ -40,6 +40,7 @@ namespace SoftBook.Application.Services.Interfaces
         Task<IEnumerable<SalePurchaseRegisterMonthwiseDTO>> GetSalePurchaseRegisterMonthwiseAsync(int companyId, string? invType, string? where);
         //==============================================trial balance hetak modi230426======================================================================
         Task<List<TrialBalanceDTO>> GetTrialBalance(int companyId, DateTime date);
+        Task<List<TrialBalanceDTO>> GetTrialBalanceGroupWise(int companyId, DateTime date);
         Task<List<BalanceSheetReportDTO>> GetBalanceSheetReportAsync(int companyId, DateTime asOfDate);
         Task<List<BalanceSheetReportDTO>> GetProfitLossReportAsync(int companyId, DateTime asOfDate);
 
