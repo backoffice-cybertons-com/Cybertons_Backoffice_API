@@ -6,6 +6,7 @@ namespace SoftBook.Domain.DTOs
 {
     public class TrialBalanceDTO
     {
+        public long? AccountId { get; set; }
         public string AccountName { get; set; }
         public decimal Debit { get; set; }
         public decimal Credit { get; set; }

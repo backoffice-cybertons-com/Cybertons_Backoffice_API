@@ -58,7 +58,8 @@ namespace SoftBook.Domain.DTOs
     {
         public DateTime JvDate { get; set; }
         public string? VType { get; set; }
-        public long? VCode { get; set; }
+        /// <summary>Voucher ref used for drill-down links. Numeric for Sale/Purchase; g_code (e.g. JV-...) for Income/Expense.</summary>
+        public string? VCode { get; set; }
         public string? Description { get; set; }
         public decimal Debit { get; set; }
         public decimal Credit { get; set; }

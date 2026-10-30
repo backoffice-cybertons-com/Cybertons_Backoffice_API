@@ -104,9 +104,11 @@ BEGIN
                 ELSE COALESCE(j.v_type, 'JV')
             END::TEXT,
 
-            -- voucher number
+            -- voucher number / edit key:
+            -- Payment/Receipt → jv_code; Income/Expense → g_code (JV-...); Sale/Purchase → v_code
             CASE
                 WHEN UPPER(j.v_type) IN ('PAYMENT', 'RECEIPT') THEN j.jv_code::TEXT
+                WHEN UPPER(COALESCE(j.v_type, '')) IN ('INCOME', 'EXPENSE') THEN COALESCE(j.g_code, '')::TEXT
                 ELSE COALESCE(j.v_code, 0)::TEXT
             END,
 

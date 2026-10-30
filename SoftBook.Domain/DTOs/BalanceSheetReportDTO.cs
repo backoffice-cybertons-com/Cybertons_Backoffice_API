@@ -8,5 +8,7 @@ namespace SoftBook.Domain.DTOs
         public long? LedgerId { get; set; }
         public string? LedgerName { get; set; }
         public decimal Amount { get; set; }
+
+        public long AccountId { get; set; }
     }
 }

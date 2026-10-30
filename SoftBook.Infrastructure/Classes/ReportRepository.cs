@@ -426,7 +426,12 @@ namespace SoftBook.Infrastructure.Classes
         public async Task<LedgerReportDTO> GetLedgerReportAsync(int companyId, int accountCode, DateTime fromDate, DateTime toDate)
         {
             // Calling the V2 function which resolves the ambiguity issue
-            var entries = await ExecuteReaderAsync("SELECT * FROM fn_ledger_report_v2(@p_company_id, @p_account_code, @p_from_date, @p_to_date)", cmd =>
+            // Join tab_jv so Income/Expense can use g_code (JV-...) for edit links; Sale/Purchase keep numeric v_code.
+            var entries = await ExecuteReaderAsync(
+                @"SELECT f.*, j.g_code AS res_g_code
+                  FROM fn_ledger_report_v2(@p_company_id, @p_account_code, @p_from_date, @p_to_date) f
+                  LEFT JOIN tab_jv j ON j.jv_code = f.res_id",
+                cmd =>
             {
                 cmd.Parameters.AddWithValue("p_company_id", companyId);
                 cmd.Parameters.AddWithValue("p_account_code", accountCode);
@@ -449,12 +454,29 @@ namespace SoftBook.Infrastructure.Classes
                     return null;
                 }
 
+                string? GetText(string name)
+                {
+                    int ordinal = reader.GetOrdinal(name);
+                    if (reader.IsDBNull(ordinal)) return null;
+                    var text = reader.GetValue(ordinal)?.ToString()?.Trim();
+                    return string.IsNullOrEmpty(text) ? null : text;
+                }
+
+                var vType = GetText("res_v_type");
+                var rawVCode = GetText("res_v_code");
+                var gCode = GetText("res_g_code");
+                var vtUpper = (vType ?? string.Empty).ToUpperInvariant();
+                // Income/Expense edit screens key off g_code (e.g. JV-20261006-7014), not numeric v_code.
+                var vCode = (vtUpper == "INCOME" || vtUpper == "EXPENSE") && !string.IsNullOrEmpty(gCode)
+                    ? gCode
+                    : rawVCode;
+
                 return new LedgerEntryDTO
                 {
                     // Map result columns with "res_" prefix to avoid ambiguity in Postgres
                     JvDate = reader.GetDateTime(reader.GetOrdinal("res_jv_date")),
-                    VType = reader.IsDBNull(reader.GetOrdinal("res_v_type")) ? null : reader.GetString(reader.GetOrdinal("res_v_type")),
-                    VCode = GetLong("res_v_code"),
+                    VType = vType,
+                    VCode = vCode,
                     Description = reader.IsDBNull(reader.GetOrdinal("res_description")) ? null : reader.GetString(reader.GetOrdinal("res_description")),
                     Debit = reader.IsDBNull(reader.GetOrdinal("res_debit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("res_debit")),
                     Credit = reader.IsDBNull(reader.GetOrdinal("res_credit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("res_credit")),
@@ -821,11 +843,56 @@ namespace SoftBook.Infrastructure.Classes
         },
         reader =>
         {
+            string? GetNullableString(params string[] names)
+            {
+                foreach (var name in names)
+                {
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        return reader.IsDBNull(i) ? null : reader.GetValue(i)?.ToString();
+                    }
+                }
+                return null;
+            }
+
+            decimal GetDecimal(params string[] names)
+            {
+                foreach (var name in names)
+                {
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        return reader.IsDBNull(i) ? 0 : Convert.ToDecimal(reader.GetValue(i));
+                    }
+                }
+                return 0;
+            }
+
+            long? GetNullableLong(params string[] names)
+            {
+                foreach (var name in names)
+                {
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        if (reader.IsDBNull(i)) return null;
+                        var value = reader.GetValue(i);
+                        return value is long l ? l : Convert.ToInt64(value);
+                    }
+                }
+                return null;
+            }
+
             return new TrialBalanceDTO
             {
-                AccountName = reader.IsDBNull(reader.GetOrdinal("account_name")) ? null : reader.GetString(reader.GetOrdinal("account_name")),
-                Debit = reader.IsDBNull(reader.GetOrdinal("debit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("debit")),
-                Credit = reader.IsDBNull(reader.GetOrdinal("credit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("credit")),
+                AccountId = GetNullableLong("account_id", "ledger_id", "party_id", "id"),
+                AccountName = GetNullableString("account_name", "ledger_name", "name"),
+                Debit = GetDecimal("debit", "total_debit"),
+                Credit = GetDecimal("credit", "total_credit"),
                 ReportGroup = null
             };
         },
@@ -878,6 +945,21 @@ namespace SoftBook.Infrastructure.Classes
                         }
                         return 0;
                     }
+                    long? GetNullableLong(params string[] names)
+                    {
+                        foreach (var name in names)
+                        {
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                if (reader.IsDBNull(i)) return null;
+                                var value = reader.GetValue(i);
+                                return value is long l ? l : Convert.ToInt64(value);
+                            }
+                        }
+                        return null;
+                    }
 
                     var reportGroup = GetNullableString("report_group", "group_name", "account_group", "grp");
                     if (string.IsNullOrWhiteSpace(reportGroup))
@@ -885,6 +967,7 @@ namespace SoftBook.Infrastructure.Classes
 
                     return new TrialBalanceDTO
                     {
+                        AccountId = GetNullableLong("account_id", "ledger_id", "party_id", "id"),
                         AccountName = GetNullableString("account_name", "ledger_name", "name"),
                         Debit = GetDecimal("debit", "total_debit"),
                         Credit = GetDecimal("credit", "total_credit"),
@@ -973,12 +1056,27 @@ namespace SoftBook.Infrastructure.Classes
                         return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
                     }
 
-                    long? GetNullableLong(string name)
+                    //long? GetNullableLong(string name)
+                    //{
+                    //    var ordinal = reader.GetOrdinal(name);
+                    //    if (reader.IsDBNull(ordinal)) return null;
+                    //    var value = reader.GetValue(ordinal);
+                    //    return value is long l ? l : Convert.ToInt64(value);
+                    //}
+                    long? GetNullableLong(params string[] names)
                     {
-                        var ordinal = reader.GetOrdinal(name);
-                        if (reader.IsDBNull(ordinal)) return null;
-                        var value = reader.GetValue(ordinal);
-                        return value is long l ? l : Convert.ToInt64(value);
+                        foreach (var name in names)
+                        {
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                if (reader.IsDBNull(i)) return null;
+                                var value = reader.GetValue(i);
+                                return value is long l ? l : Convert.ToInt64(value);
+                            }
+                        }
+                        return null;
                     }
 
                     decimal GetDecimal(string name)
@@ -987,12 +1085,14 @@ namespace SoftBook.Infrastructure.Classes
                         return reader.IsDBNull(ordinal) ? 0 : reader.GetDecimal(ordinal);
                     }
 
+                   
                     return new BalanceSheetReportDTO
                     {
+                        AccountId = GetNullableLong("account_id", "ledger_id", "party_id", "id") ?? 0,
                         ReportSide = GetNullableString("report_side"),
                         RowType = GetNullableString("row_type"),
                         GroupName = GetNullableString("group_name"),
-                        LedgerId = GetNullableLong("ledger_id"),
+                        LedgerId = GetNullableLong("ledger_id", "account_id", "party_id", "id"),
                         LedgerName = GetNullableString("ledger_name"),
                         Amount = GetDecimal("amount")
                     };
