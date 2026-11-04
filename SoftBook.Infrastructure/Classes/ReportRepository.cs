@@ -1050,19 +1050,20 @@ namespace SoftBook.Infrastructure.Classes
                 },
                 reader =>
                 {
-                    string? GetNullableString(string name)
+                    string? GetNullableString(params string[] names)
                     {
-                        var ordinal = reader.GetOrdinal(name);
-                        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+                        foreach (var name in names)
+                        {
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                if (!string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                return reader.IsDBNull(i) ? null : reader.GetString(i);
+                            }
+                        }
+                        return null;
                     }
 
-                    //long? GetNullableLong(string name)
-                    //{
-                    //    var ordinal = reader.GetOrdinal(name);
-                    //    if (reader.IsDBNull(ordinal)) return null;
-                    //    var value = reader.GetValue(ordinal);
-                    //    return value is long l ? l : Convert.ToInt64(value);
-                    //}
                     long? GetNullableLong(params string[] names)
                     {
                         foreach (var name in names)
@@ -1085,13 +1086,13 @@ namespace SoftBook.Infrastructure.Classes
                         return reader.IsDBNull(ordinal) ? 0 : reader.GetDecimal(ordinal);
                     }
 
-                   
                     return new BalanceSheetReportDTO
                     {
                         AccountId = GetNullableLong("account_id", "ledger_id", "party_id", "id") ?? 0,
                         ReportSide = GetNullableString("report_side"),
                         RowType = GetNullableString("row_type"),
                         GroupName = GetNullableString("group_name"),
+                        SubGroupName = GetNullableString("sub_group_name", "subgroup_name"),
                         LedgerId = GetNullableLong("ledger_id", "account_id", "party_id", "id"),
                         LedgerName = GetNullableString("ledger_name"),
                         Amount = GetDecimal("amount")

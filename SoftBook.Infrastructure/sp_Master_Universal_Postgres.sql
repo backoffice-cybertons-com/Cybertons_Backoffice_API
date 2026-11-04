@@ -85,6 +85,7 @@ BEGIN
         WHEN 'party', 'partymaster', 'tabpartymaster', 'party_master', 'parties' THEN v_table_name := 'tab_party_master'; v_pk_name := 'party_id';
         WHEN 'product', 'tabproductmaster', 'product_master', 'products' THEN v_table_name := 'tab_product_master'; v_pk_name := 'product_id';
         WHEN 'partytype', 'tabpartytypemaster', 'party_type', 'partytypes' THEN v_table_name := 'tab_party_type_master'; v_pk_name := 'party_type_id';
+        WHEN 'reportpartytype', 'reportpartytypes', 'tabpartyreporttypemaster', 'party_report_type', 'tab_party_report_type_master' THEN v_table_name := 'tab_party_report_type_master'; v_pk_name := 'id';
         WHEN 'taxgroup', 'tabtaxgroupmaster', 'tax_group', 'taxgroups' THEN v_table_name := 'tab_tax_group_master'; v_pk_name := 'tax_group_id';
         WHEN 'taxgroupdetail', 'tabtaxgroupdetail', 'configuretax', 'tax_group_detail', 'taxgroupdetails' THEN v_table_name := 'tab_tax_group_detail'; v_pk_name := 'tax_group_detail_id';
         WHEN 'tcs', 'tabtcsmaster', 'tcs_master' THEN v_table_name := 'tab_tcs_master'; v_pk_name := 'tcs_id';

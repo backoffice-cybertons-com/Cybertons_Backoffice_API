@@ -46,6 +46,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
 
         if (partyId != 0) party.PartyId = Convert.ToInt32(partyId);
         await PersistPartyLimitFieldsAsync(party);
+        await PersistPartyTypeIdAsync(party);
         return DbResult.Ok(party);
       }
       catch (Exception ex)
@@ -64,6 +65,7 @@ namespace SoftBook.Infrastructure.Repositories.Classes
         });
 
         await PersistPartyLimitFieldsAsync(party);
+        await PersistPartyTypeIdAsync(party);
         return DbResult.Ok(party);
       }
       catch (Exception ex)
@@ -250,12 +252,57 @@ namespace SoftBook.Infrastructure.Repositories.Classes
         CommandType.Text);
     }
 
+    private async Task PersistPartyTypeIdAsync(Party party)
+    {
+      if (party.PartyId <= 0) return;
+
+      await ExecuteNonQueryAsync(@"
+          UPDATE public.tab_party_master
+          SET party_type_id = COALESCE(
+                  @p_party_type_id,
+                  (
+                    SELECT pt.party_type_id
+                    FROM public.tab_party_type_master pt
+                    WHERE LOWER(TRIM(pt.party_type_name)) = LOWER(TRIM(@p_party_type))
+                      AND (pt.company_id = @p_company_id OR pt.company_id IS NULL)
+                    ORDER BY CASE WHEN pt.company_id = @p_company_id THEN 0 ELSE 1 END, pt.party_type_id
+                    LIMIT 1
+                  )
+              ),
+              modified_on = CURRENT_TIMESTAMP
+          WHERE party_id = @p_party_id
+            AND company_id = @p_company_id",
+        cmd =>
+        {
+          cmd.Parameters.AddWithValue("p_party_id", party.PartyId);
+          cmd.Parameters.AddWithValue("p_company_id", _tenantProvider?.CompanyId ?? 0);
+          cmd.Parameters.AddWithValue("p_party_type", party.PartyType ?? (object)DBNull.Value);
+          cmd.Parameters.AddWithValue("p_party_type_id", party.PartyTypeId.HasValue && party.PartyTypeId.Value > 0
+              ? party.PartyTypeId.Value
+              : (object)DBNull.Value);
+        },
+        CommandType.Text);
+    }
+
     private Party MapToParty(Npgsql.NpgsqlDataReader reader)
     {
+       int? partyTypeId = null;
+       try
+       {
+         var ordinal = reader.GetOrdinal("party_type_id");
+         if (!reader.IsDBNull(ordinal))
+           partyTypeId = Convert.ToInt32(reader.GetValue(ordinal));
+       }
+       catch (IndexOutOfRangeException)
+       {
+         partyTypeId = null;
+       }
+
        return new Party
        {
           PartyId = SafeGetInt(reader, "party_id"),
           PartyType = SafeGetString(reader, "party_type"),
+          PartyTypeId = partyTypeId,
           ReportPartyType = SafeGetString(reader, "report_party_type"),
           Salutation = SafeGetString(reader, "salutation"),
           FirstName = SafeGetString(reader, "first_name"),
