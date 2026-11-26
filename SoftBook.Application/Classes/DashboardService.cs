@@ -26,6 +26,11 @@ namespace SoftBook.Application.Classes
             _partyRateAdjustmentService = partyRateAdjustmentService;
         }
 
+        public Task<List<CashBankPartyDetailDto>> GetCashBankPartyDetailsAsync(int companyId, DateTime fromDate, DateTime toDate, string accountGroup)
+        {
+            return _dashboardRepository.GetCashBankPartyDetailsAsync(companyId, fromDate.Date, toDate.Date, accountGroup.Trim());
+        }
+
         public async Task<string> GetDashboardDataAsync(DashboardRequestDto request)
         {
             ApplyDashboardDateRange(request);

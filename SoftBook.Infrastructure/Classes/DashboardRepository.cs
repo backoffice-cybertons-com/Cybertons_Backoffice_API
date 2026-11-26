@@ -5,6 +5,7 @@ using SoftBook.Domain.Data;
 using SoftBook.Domain.DTOs;
 using SoftBook.Domain.RepositoryInterfaces;
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
 
@@ -183,6 +184,32 @@ namespace SoftBook.Infrastructure.Classes
                 });
             }, CommandType.Text)
                 ?? "{\"party_count\":0,\"total_outstanding\":0,\"parties\":[]}";
+        }
+
+        public async Task<List<CashBankPartyDetailDto>> GetCashBankPartyDetailsAsync(int companyId, DateTime fromDate, DateTime toDate, string accountGroup)
+        {
+            const string sql = "SELECT * FROM public.fn_dashboard_cash_bank_party_details(@p_company_id, @p_from_date, @p_to_date, @p_account_group);";
+
+            return await ExecuteRawQueryAsync(sql, cmd =>
+            {
+                cmd.Parameters.AddWithValue("p_company_id", companyId);
+                cmd.Parameters.Add(new NpgsqlParameter("p_from_date", NpgsqlTypes.NpgsqlDbType.Date)
+                {
+                    Value = fromDate.Date
+                });
+                cmd.Parameters.Add(new NpgsqlParameter("p_to_date", NpgsqlTypes.NpgsqlDbType.Date)
+                {
+                    Value = toDate.Date
+                });
+                cmd.Parameters.AddWithValue("p_account_group", accountGroup);
+            }, reader => new CashBankPartyDetailDto
+            {
+                PartyId = reader["party_id"] == DBNull.Value ? 0 : Convert.ToInt64(reader["party_id"]),
+                PartyName = reader["party_name"] == DBNull.Value ? null : reader["party_name"].ToString(),
+                AccountGroup = reader["account_group"] == DBNull.Value ? null : reader["account_group"].ToString(),
+                Debit = reader["debit"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["debit"]),
+                Credit = reader["credit"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["credit"])
+            });
         }
     }
 }

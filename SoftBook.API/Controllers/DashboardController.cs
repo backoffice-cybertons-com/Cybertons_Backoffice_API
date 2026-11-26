@@ -48,6 +48,39 @@ namespace SoftBook.API.Controllers
             }
         }
 
+        [HttpPost("cash-bank-party-details")]
+        public async Task<IActionResult> GetCashBankPartyDetails([FromBody] CashBankPartyDetailsRequestDto request)
+        {
+            if (request == null || request.CompanyId <= 0)
+            {
+                return BadRequest(new { message = "CompanyId is required." });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.AccountGroup))
+            {
+                return BadRequest(new { message = "Account group is required." });
+            }
+
+            if (request.FromDate.Date > request.ToDate.Date)
+            {
+                return BadRequest(new { message = "From date cannot be after to date." });
+            }
+
+            try
+            {
+                var rows = await _dashboardService.GetCashBankPartyDetailsAsync(
+                    request.CompanyId,
+                    request.FromDate,
+                    request.ToDate,
+                    request.AccountGroup);
+                return Ok(rows);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while fetching cash bank party details.", details = ex.Message });
+            }
+        }
+
         /// <summary>
         /// Admin-only: per-user activity counts for the selected date range.
         /// </summary>

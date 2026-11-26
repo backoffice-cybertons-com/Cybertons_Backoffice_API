@@ -1,5 +1,6 @@
 using SoftBook.Domain.DTOs;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace SoftBook.Domain.RepositoryInterfaces
@@ -12,5 +13,6 @@ namespace SoftBook.Domain.RepositoryInterfaces
         Task<string> GetTransactionSummaryAsync(DashboardRequestDto request);
         Task<string> GetSalesProfitSummaryAsync(DashboardRequestDto request);
         Task<string> GetOutstandingNoInvoiceAsync(DashboardRequestDto request);
+        Task<List<CashBankPartyDetailDto>> GetCashBankPartyDetailsAsync(int companyId, DateTime fromDate, DateTime toDate, string accountGroup);
     }
 }
