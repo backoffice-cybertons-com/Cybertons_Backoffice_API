@@ -49,7 +49,7 @@ namespace SoftBook.Domain.RepositoryInterfaces
 
 
 
-        Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(int companyId, int? partyId, string pAsOfDate, string partyType);
+        Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(int companyId, int[]? partyId, string pAsOfDate, string partyType);
 
         Task<IEnumerable<SalePurchaseRegisterDatewiseComparisonDTO>> GetSalePurchaseRegisterDatewiseComparisonAsync(int companyId, string? where, string compareMode);
         //gst

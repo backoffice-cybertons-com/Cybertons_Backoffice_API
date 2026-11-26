@@ -122,7 +122,7 @@ namespace SoftBook.Application.Services.Classes
 
         //by diya 4/24
         //payeble receivable
-        public async Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(int companyId, int? partyId, string? pAsOfDate, string partyType)
+        public async Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(int companyId, int[]? partyId, string? pAsOfDate, string partyType)
         {
             return await _reportRepository.GetPayebleReceivableAsync(companyId, partyId, pAsOfDate, partyType);
         }

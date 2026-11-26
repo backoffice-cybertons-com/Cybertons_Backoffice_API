@@ -61,6 +61,7 @@ namespace SoftBook.Domain.DTOs
         /// <summary>Voucher ref used for drill-down links. Numeric for Sale/Purchase; g_code (e.g. JV-...) for Income/Expense.</summary>
         public string? VCode { get; set; }
         public string? Description { get; set; }
+        public string? InvDescription { get; set; }
         public decimal Debit { get; set; }
         public decimal Credit { get; set; }
         public decimal Balance { get; set; }

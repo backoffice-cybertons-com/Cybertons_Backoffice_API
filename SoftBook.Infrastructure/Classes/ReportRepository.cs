@@ -478,6 +478,7 @@ namespace SoftBook.Infrastructure.Classes
                     VType = vType,
                     VCode = vCode,
                     Description = reader.IsDBNull(reader.GetOrdinal("res_description")) ? null : reader.GetString(reader.GetOrdinal("res_description")),
+                    InvDescription = reader.IsDBNull(reader.GetOrdinal("res_invoice_description")) ? null : reader.GetString(reader.GetOrdinal("res_invoice_description")),
                     Debit = reader.IsDBNull(reader.GetOrdinal("res_debit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("res_debit")),
                     Credit = reader.IsDBNull(reader.GetOrdinal("res_credit")) ? 0 : reader.GetDecimal(reader.GetOrdinal("res_credit")),
                     Balance = reader.IsDBNull(reader.GetOrdinal("res_balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("res_balance")),
@@ -1106,7 +1107,7 @@ namespace SoftBook.Infrastructure.Classes
         //by diya 4/24
         public async Task<IEnumerable<PayebleReceivableDTO>> GetPayebleReceivableAsync(
             int companyId,
-            int? partyId,
+            int[]? partyId,
             string asOfDate,
             string partyType)
                     {
@@ -1135,11 +1136,21 @@ namespace SoftBook.Infrastructure.Classes
                                             Value = companyId
                                         });
 
+                                    //cmd.Parameters.Add(
+                                    //  new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
+                                    //  {
+                                    //      Value = (object?)partyId ?? DBNull.Value
+                                    //  });
                                     cmd.Parameters.Add(
-                                      new NpgsqlParameter("p_party_id", NpgsqlTypes.NpgsqlDbType.Integer)
-                                      {
-                                          Value = (object?)partyId ?? DBNull.Value
-                                      });
+                                              new NpgsqlParameter(
+                                                  "p_party_id",
+                                                  NpgsqlTypes.NpgsqlDbType.Array |
+                                                  NpgsqlTypes.NpgsqlDbType.Integer)
+                                              {
+                                                  Value = (partyId == null || partyId.Length == 0)
+                                                      ? DBNull.Value
+                                                      : partyId
+                                              });
 
                                     cmd.Parameters.Add(
                                         new NpgsqlParameter("p_as_of_date", NpgsqlTypes.NpgsqlDbType.Date)

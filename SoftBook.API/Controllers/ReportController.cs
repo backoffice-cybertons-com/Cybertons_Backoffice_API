@@ -411,7 +411,7 @@ namespace SoftBook.API.Controllers
         [HttpGet("payeble-receivable")]
         public async Task<IActionResult> GetPayebleReceivable(
             [FromQuery] int companyId,
-            [FromQuery] int? partyId,
+            [FromQuery] int[]? partyId,
             [FromQuery] string? pAsOfDate,
             [FromQuery] string partyType)
         {
